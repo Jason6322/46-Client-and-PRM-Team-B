@@ -31,7 +31,7 @@ git push -u origin hotfix/{hotfix-name}
 # Open PR targeting main
 gh pr create \
   --title "fix: {hotfix-name}" \
-  --body "## Problem\n{describe the bug}\n\n## Fix\n{describe the fix}\n\n## Test plan\n- [ ] Regression test added\n- [ ] Tested against a dev Firebase project" \
+  --body "## Problem\n{describe the bug}\n\n## Fix\n{describe the fix}\n\n## Test plan\n- [ ] Regression test added\n- [ ] Tested against a dev Firebase project\n\n🤖 Generated with Claude Code" \
   --base main
 ```
 

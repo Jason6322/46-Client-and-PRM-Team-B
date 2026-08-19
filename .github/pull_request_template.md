@@ -31,3 +31,7 @@
 
 - [ ] No new env vars
 - [ ] New vars added to `.env.example` files and `docs/ENV-VARS.md`
+
+---
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
