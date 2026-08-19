@@ -28,7 +28,7 @@ git checkout -b feature/{feature-name}
 git push -u origin feature/{feature-name}
 gh pr create \
   --title "feat: {feature-name}" \
-  --body "## Summary\n- {brief-description}\n\n## Test plan\n- [ ] Unit tests pass\n- [ ] Manual smoke test against a dev Firebase project\n\n🤖 Generated with Claude Code" \
+  --body "## Summary\n- {brief-description}\n\n## Test plan\n- [ ] Unit tests pass\n- [ ] Manual smoke test against a dev Firebase project" \
   --base main \
   --draft
 ```
