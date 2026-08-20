@@ -54,9 +54,13 @@ Values come from **Firebase Console → Project settings**:
 - `NEXT_PUBLIC_FIREBASE_*` — from *Your apps → firebaseConfig*. Safe for the browser.
 - `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` — from *Service accounts → Generate new private key*, base64-encoded. **Server-only secret** — never prefix it with `NEXT_PUBLIC_`.
 
-`.firebaserc` must also be set to the same project ID as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`. Full reference: [docs/ENV-VARS.md](docs/ENV-VARS.md).
+`.firebaserc` must be set to the same project ID as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`. Full reference: [docs/ENV-VARS.md](docs/ENV-VARS.md).
 
-> **Status:** the shared Firebase project is being provisioned under the *Set up web server and database* task. Until it lands, `.firebaserc` holds a placeholder and you'll need your own free Spark-plan Firebase project to run the app locally.
+Ask the team for the `NEXT_PUBLIC_FIREBASE_*` values — they're safe to share, since they ship to the browser by design. Generate your own `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` from the Firebase Console rather than passing the key around; it's a private key with full admin access:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\path\to\service-account.json')) | Set-Clipboard
+```
 
 ### Commands
 

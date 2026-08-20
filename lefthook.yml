@@ -6,17 +6,17 @@ pre-commit:
     format:
       glob: '**/*.{ts,tsx,json,md,css}'
       exclude: '(node_modules|\.next|\.git)'
-      run: npx --yes prettier --write {staged_files} || true
+      run: pnpm exec prettier --write {staged_files} && git add {staged_files}
 
     lint-frontend:
       root: 'frontend/'
-      glob: 'src/**/*.{ts,tsx}'
-      run: npx eslint --fix {staged_files}
+      glob: 'frontend/src/**/*.{ts,tsx}'
+      run: pnpm exec eslint --fix {staged_files} && git add {staged_files}
 
     lint-backend:
       root: 'backend/'
-      glob: 'src/**/*.ts'
-      run: npx eslint --fix {staged_files}
+      glob: 'backend/src/**/*.ts'
+      run: pnpm exec eslint --fix {staged_files} && git add {staged_files}
 
 commit-msg:
   commands:
