@@ -11,6 +11,75 @@
 | **Database / Auth** | Firestore · Firebase Authentication |
 | **Testing** | Vitest · Testing Library · supertest |
 
+## Getting Started
+
+Everything runs locally against the team's real (free-tier) Firebase project — there is no Docker and no local emulator to set up.
+
+### Prerequisites
+
+| Requirement | Notes |
+|-------------|-------|
+| **Node.js 22+** | `node --version` |
+| **pnpm 10+** | Never use `npm` or `yarn` in this repo — see below |
+| **Firebase project access** | Ask the team lead to add your Google account to the team Firebase project (Auth + Firestore enabled) |
+| **Git** | Configured with your GitHub account |
+
+Installing pnpm — either works:
+
+```bash
+corepack enable pnpm      # ships with Node; needs an Administrator terminal on Windows
+npm install -g pnpm       # fallback, no elevation needed
+```
+
+If neither is available, prefix commands with `corepack pnpm` instead of `pnpm`.
+
+### Setup
+
+```bash
+git clone https://github.com/Jason6322/46-Client-and-PRM-Team-B.git
+cd 46-Client-and-PRM-Team-B
+
+pnpm install              # installs all workspaces + activates the git hooks
+
+cp .env.example .env      # then fill in the values (see below)
+pnpm run dev              # http://localhost:3000
+```
+
+### Environment variables
+
+The root **`.env` is the single source of truth**. `pnpm run env:sync` generates `frontend/.env.local` and `backend/.env` from it, and runs automatically before `pnpm run dev` — never edit those two files by hand. `.env` is gitignored; never commit it.
+
+Values come from **Firebase Console → Project settings**:
+
+- `NEXT_PUBLIC_FIREBASE_*` — from *Your apps → firebaseConfig*. Safe for the browser.
+- `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` — from *Service accounts → Generate new private key*, base64-encoded. **Server-only secret** — never prefix it with `NEXT_PUBLIC_`.
+
+`.firebaserc` must also be set to the same project ID as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`. Full reference: [docs/ENV-VARS.md](docs/ENV-VARS.md).
+
+> **Status:** the shared Firebase project is being provisioned under the *Set up web server and database* task. Until it lands, `.firebaserc` holds a placeholder and you'll need your own free Spark-plan Firebase project to run the app locally.
+
+### Commands
+
+| Command | What it does |
+|---------|--------------|
+| `pnpm run dev` | Frontend dev server on :3000 |
+| `pnpm run build` | Production build (frontend + backend) |
+| `pnpm run test` | Backend unit tests (mocked Firebase Admin) |
+| `pnpm run test:component` | Frontend unit tests |
+| `pnpm run test:all` | Both suites |
+| `pnpm run lint` | ESLint across all packages |
+| `pnpm run typecheck` | TypeScript check across all packages |
+| `pnpm run validate` | Check for unreplaced template placeholders |
+
+### Contributing workflow
+
+1. Branch from `main` — `feature/*` for new work, `hotfix/*` for urgent fixes. Never commit to `main` directly.
+2. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`). The `commit-msg` hook rejects anything else, and a `pre-commit` hook runs lint + format.
+3. Open a PR into `main` and fill in the PR template.
+4. CI must be green before merge — lint + typecheck, frontend tests, backend tests, and a dependency vulnerability audit all run on every PR.
+
+More detail in [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) and [docs/CI-CD.md](docs/CI-CD.md). New to the codebase? Start with [docs/GUIDE.md](docs/GUIDE.md).
+
 ## Project Structure
 
 ```
