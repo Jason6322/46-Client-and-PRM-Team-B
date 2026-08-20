@@ -4,7 +4,9 @@ pre-commit:
       run: node scripts/validate-placeholders.js
 
     format:
-      glob: '**/*.{ts,tsx,json,md,css}'
+      # {,**/} so root-level files (README.md, package.json) match too —
+      # a bare **/ requires at least one directory and silently skips them.
+      glob: '{,**/}*.{ts,tsx,json,md,css}'
       exclude: '(node_modules|\.next|\.git)'
       run: pnpm exec prettier --write {staged_files} && git add {staged_files}
 
