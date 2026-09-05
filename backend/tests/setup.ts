@@ -7,7 +7,11 @@ import type { AuthUser, VerifyToken } from '../src/middleware/auth'
 vi.mock('../src/lib/firebase', () => ({
   adminApp: {},
   adminAuth: { verifyIdToken: vi.fn() },
-  adminDb: { collection: vi.fn(), runTransaction: vi.fn() },
+  adminDb: {
+    collection: vi.fn(),
+    runTransaction: vi.fn(),
+    listCollections: vi.fn().mockResolvedValue([]),
+  },
 }))
 
 /**
