@@ -73,6 +73,8 @@ Everything a feature build needs already exists below. **Do not survey the codeb
 | `frontend/src/components/layout/`            | `DashboardShell`, `Sidebar` (navItems array — add links here), `Navbar`, `PageHeader`                                                     | App shell                                                       |
 | `frontend/src/components/shared/`            | `ErrorBoundary`, `LoadingSpinner`, `FullPageSpinner`, `EmptyState { title, description?, icon?, action? }`                                | Loading/empty/error states                                      |
 | `frontend/src/app/api/auth/session/route.ts` | POST (token → `__session` cookie), DELETE                                                                                                 | Already wired — don't touch for features                        |
+| `frontend/src/lib/api/problem.ts`           | `problem(status, title, detail)`, `unauthorized(detail?)` → RFC 9457 `NextResponse`                                                     | Errors from API Route Handlers                                  |
+| `frontend/src/lib/api/bearer.ts`            | `verifyBearer(req)` → `BearerUser | null` (verifies `Authorization: Bearer <ID token>`)                                                | Auth in API Route Handlers                                      |
 
 ### Backend building blocks
 
@@ -92,7 +94,11 @@ Everything a feature build needs already exists below. **Do not survey the codeb
 
 ### Existing routes/pages
 
-Pages: `/` · `/auth/signin` · `/auth/signup` · `/dashboard` · `/profile` · `/settings` (route groups `(auth)`, `(dashboard)`). Backend: `GET /api/health` (public) · `GET /api/me` (returns `{ uid, email }` for the authed caller); everything else under `/api` requires `Authorization: Bearer <ID token>`.
+Pages: `/` · `/auth/signin` · `/auth/signup` · `/dashboard` · `/profile` · `/settings` (route groups `(auth)`, `(dashboard)`).
+
+API (Next.js Route Handlers on Vercel — these are what the live URL serves): `GET /api/health` (public) · `GET /api/me` (returns `{ uid, email }`; requires `Authorization: Bearer <ID token>`) · `POST|DELETE /api/auth/session`.
+
+The Express app in `backend/` mirrors `/api/health` and `/api/me` and remains the target for a future Cloud Functions deploy, but **it is not deployed** — Cloud Functions v2 needs the Blaze plan and the Firebase project is on Spark. Add a route to both sides, or accept that the backend copy is dormant.
 
 ---
 

@@ -20,6 +20,12 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: { '@': resolve(__dirname, './src') },
+    alias: {
+      '@': resolve(__dirname, './src'),
+      // Unit tests exercise Server Component modules, so resolve the
+      // 'server-only' marker to its react-server (no-op) build instead of the
+      // client build, which throws on import.
+      'server-only': resolve(__dirname, '../node_modules/server-only/empty.js'),
+    },
   },
 })
