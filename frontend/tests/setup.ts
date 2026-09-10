@@ -14,5 +14,7 @@ vi.mock('@/lib/firebase/admin', () => ({
     createSessionCookie: vi.fn(),
     verifyIdToken: vi.fn(),
   },
-  adminDb: {},
+  adminDb: {
+    listCollections: vi.fn().mockResolvedValue([]),
+  },
 }))
