@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 
@@ -23,20 +24,18 @@ const STAT_CARDS = [
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Overview of relationship activity across all organisations
-          </p>
-        </div>
-        <Link
-          href="/organisations/new"
-          className="bg-brand-600 hover:bg-brand-700 shrink-0 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
-        >
-          + Add Organisation
-        </Link>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Overview of relationship activity across all organisations"
+        actions={
+          <Link
+            href="/organisations/new"
+            className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+          >
+            + Add Organisation
+          </Link>
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STAT_CARDS.map((label) => (
