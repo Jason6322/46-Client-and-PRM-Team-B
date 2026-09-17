@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -12,15 +12,26 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  /* Brand blue — primary actions, active nav, chart fills, stage labels. */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+
+  /* CRM shell surfaces, taken from the approved prototype. */
+  --color-nav: #1b1f2a;
+  --color-canvas: #f5f5f7;
 }
 
+/*
+ * The CRM prototype is light-only: the shell paints its own light surfaces
+ * (bg-canvas, white cards), so there is deliberately no dark-mode block here.
+ * Adding one would put light text on those light surfaces.
+ */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }

@@ -18,13 +18,13 @@ export const metadata: Metadata = {
     template: `%s | ${process.env.NEXT_PUBLIC_APP_NAME ?? 'App'}`,
     default: process.env.NEXT_PUBLIC_APP_NAME ?? 'App',
   },
-  description: 'Built on garage-boilerplate',
+  description: 'Client and partner relationship management for the Food Systems Collective.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>

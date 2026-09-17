@@ -1,40 +1,71 @@
 import type { Metadata } from 'next'
-import { getServerSession } from '@/actions/auth.actions'
-import { adminDb } from '@/lib/firebase/admin'
+import Link from 'next/link'
+import { Card } from '@/components/shared/Card'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
 }
 
-export default async function DashboardPage() {
-  const session = await getServerSession()
-  const profileSnap = session ? await adminDb.collection('users').doc(session.uid).get() : null
+const STAT_CARDS = [
+  'Active Organisations',
+  'Follow-ups',
+  'Active Opportunities',
+  'Meetings (next 7 days)',
+]
 
-  const displayName = profileSnap?.exists
-    ? (profileSnap.data()?.displayName as string | null)
-    : null
-  const greetingName = displayName ?? session?.email ?? null
-
+/**
+ * CRM dashboard — screen 1 of the approved prototype.
+ *
+ * Layout and styling only. No data source is wired up yet, so every panel
+ * renders its empty state.
+ */
+export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Welcome back{greetingName ? `, ${greetingName}` : ''}.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Dashboard</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Overview of relationship activity across all organisations
+          </p>
+        </div>
+        <Link
+          href="/organisations/new"
+          className="bg-brand-600 hover:bg-brand-700 shrink-0 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+        >
+          + Add Organisation
+        </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {(['Metric One', 'Metric Two', 'Metric Three'] as const).map((title) => (
-          <div
-            key={title}
-            className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <p className="text-sm font-medium text-zinc-500">{title}</p>
-            <p className="mt-2 text-3xl font-bold">—</p>
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {STAT_CARDS.map((label) => (
+          <Card key={label} className="p-5">
+            <p className="text-2xl font-normal text-zinc-400">—</p>
+            <p className="mt-1 text-sm text-zinc-500">{label}</p>
+          </Card>
         ))}
       </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card title="Relationships by Pipeline Stage" className="lg:col-span-2">
+          <EmptyState title="No organisations yet" />
+        </Card>
+
+        <div className="space-y-6">
+          <Card title="Recent Activity">
+            <EmptyState title="No activity yet" />
+          </Card>
+
+          <Card title="Upcoming Meetings">
+            <EmptyState title="No meetings yet" />
+          </Card>
+        </div>
+      </div>
+
+      <Card title="Active Partnership Opportunities">
+        <EmptyState title="No opportunities yet" />
+      </Card>
     </div>
   )
 }
