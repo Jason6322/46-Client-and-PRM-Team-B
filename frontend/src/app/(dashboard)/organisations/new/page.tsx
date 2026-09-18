@@ -1,15 +1,16 @@
 import type { Metadata } from 'next'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { OrganisationForm } from '@/features/organisations/components/OrganisationForm'
 
 export const metadata: Metadata = {
   title: 'Add Organisation',
 }
 
-/**
- * Add Organisation — empty placeholder.
- *
- * The route exists so the navigation is complete. Intentionally renders
- * nothing until the screen is built.
- */
 export default function NewOrganisationPage() {
-  return null
+  return (
+    <div className="max-w-5xl space-y-6">
+      <PageHeader title="Add Organisation" description="Fields marked * are required" />
+      <OrganisationForm />
+    </div>
+  )
 }
