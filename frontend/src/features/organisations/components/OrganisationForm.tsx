@@ -2,14 +2,25 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useForm, type FieldError, type UseFormRegisterReturn } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { Card } from '@/components/shared/Card'
 import { ORGANISATION_TYPES } from '@/features/organisations/constants'
+import { createOrganisation } from '@/features/organisations/actions/organisations.actions'
+import {
+  organisationFormSchema,
+  toCreateOrganisationInput,
+  type OrganisationFormValues,
+} from '@/lib/validations/organisation'
+import { cn } from '@/lib/utils'
 
 /**
  * Add Organisation form — screen 5 of the approved prototype.
  *
- * Layout and styling only. Nothing is submitted or validated yet; the only
- * behaviour is showing and hiding the optional secondary contact.
+ * Validates against the same Zod definitions the Server Action uses, so the
+ * browser and the server can never disagree about what is valid.
  */
 
 const labelClass = 'block text-xs font-semibold tracking-wide text-zinc-500 uppercase'
@@ -22,51 +33,103 @@ function Field({
   required,
   placeholder,
   type = 'text',
+  registration,
+  error,
 }: {
   id: string
   label: string
   required?: boolean
   placeholder?: string
   type?: string
+  registration: UseFormRegisterReturn
+  error?: FieldError
 }) {
   return (
     <div>
       <label htmlFor={id} className={labelClass}>
         {label} {required && <span aria-hidden="true">*</span>}
       </label>
-      <input id={id} type={type} placeholder={placeholder} className={inputClass} />
+      <input
+        id={id}
+        type={type}
+        placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={cn(inputClass, error && 'border-red-400 focus:border-red-500')}
+        {...registration}
+      />
+      {error && (
+        <p id={`${id}-error`} className="mt-1 text-xs text-red-600">
+          {error.message}
+        </p>
+      )}
     </div>
   )
 }
 
-function ContactFields({ prefix, legend }: { prefix: string; legend: string }) {
-  return (
-    <fieldset>
-      <legend className="mb-4 text-base font-semibold text-zinc-900">{legend}</legend>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id={`${prefix}-name`} label="Name" required />
-        <Field id={`${prefix}-role`} label="Role / Position" />
-        <Field id={`${prefix}-email`} label="Email" type="email" />
-        <Field id={`${prefix}-phone`} label="Phone" type="tel" />
-      </div>
-    </fieldset>
-  )
-}
-
 export function OrganisationForm() {
+  const router = useRouter()
   const [showSecondary, setShowSecondary] = useState(false)
 
+  const {
+    register,
+    handleSubmit,
+    unregister,
+    formState: { errors, isSubmitting },
+  } = useForm<OrganisationFormValues>({
+    resolver: zodResolver(organisationFormSchema),
+    defaultValues: {
+      name: '',
+      industry: '',
+      country: '',
+      website: '',
+      relationshipOwner: '',
+      tags: '',
+      notes: '',
+      primaryContact: { name: '', role: '', email: '', phone: '' },
+    },
+  })
+
+  const hideSecondary = () => {
+    unregister('secondaryContact')
+    setShowSecondary(false)
+  }
+
+  const onSubmit = handleSubmit(async (values) => {
+    const result = await createOrganisation(toCreateOrganisationInput(values))
+
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? 'Failed to create organisation')
+      return
+    }
+
+    toast.success(`${values.name.trim()} added`)
+    router.push(`/organisations/${result.data.id}`)
+  })
+
   return (
-    <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
+    <form className="space-y-6" onSubmit={onSubmit} noValidate>
       <Card title="Organisation Details">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field id="name" label="Organisation Name" required />
+          <Field
+            id="name"
+            label="Organisation Name"
+            required
+            registration={register('name')}
+            error={errors.name}
+          />
 
           <div>
             <label htmlFor="type" className={labelClass}>
               Type <span aria-hidden="true">*</span>
             </label>
-            <select id="type" defaultValue="" className={inputClass}>
+            <select
+              id="type"
+              defaultValue=""
+              aria-invalid={errors.type ? true : undefined}
+              className={cn(inputClass, errors.type && 'border-red-400')}
+              {...register('type')}
+            >
               <option value="" disabled>
                 Select a type
               </option>
@@ -76,21 +139,48 @@ export function OrganisationForm() {
                 </option>
               ))}
             </select>
+            {errors.type && <p className="mt-1 text-xs text-red-600">{errors.type.message}</p>}
           </div>
 
-          <Field id="industry" label="Industry / Sector" />
-          <Field id="country" label="Country" required />
-          <Field id="website" label="Website" type="url" placeholder="https://" />
+          <Field
+            id="industry"
+            label="Industry / Sector"
+            registration={register('industry')}
+            error={errors.industry}
+          />
+          <Field
+            id="country"
+            label="Country"
+            required
+            registration={register('country')}
+            error={errors.country}
+          />
+          <Field
+            id="website"
+            label="Website"
+            type="url"
+            placeholder="https://"
+            registration={register('website')}
+            error={errors.website}
+          />
           <Field
             id="relationshipOwner"
             label="Relationship Owner"
             required
             placeholder="Assign team member"
+            registration={register('relationshipOwner')}
+            error={errors.relationshipOwner}
           />
         </div>
 
         <div className="mt-5">
-          <Field id="tags" label="Tags" placeholder="Comma-separated" />
+          <Field
+            id="tags"
+            label="Tags"
+            placeholder="Comma-separated"
+            registration={register('tags')}
+            error={errors.tags}
+          />
         </div>
 
         <div className="mt-5">
@@ -100,14 +190,78 @@ export function OrganisationForm() {
       </Card>
 
       <Card>
-        <ContactFields prefix="primary" legend="Primary Contact" />
+        <fieldset>
+          <legend className="mb-4 text-base font-semibold text-zinc-900">Primary Contact</legend>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              id="primary-name"
+              label="Name"
+              required
+              registration={register('primaryContact.name')}
+              error={errors.primaryContact?.name}
+            />
+            <Field
+              id="primary-role"
+              label="Role / Position"
+              registration={register('primaryContact.role')}
+              error={errors.primaryContact?.role}
+            />
+            <Field
+              id="primary-email"
+              label="Email"
+              type="email"
+              registration={register('primaryContact.email')}
+              error={errors.primaryContact?.email}
+            />
+            <Field
+              id="primary-phone"
+              label="Phone"
+              type="tel"
+              registration={register('primaryContact.phone')}
+              error={errors.primaryContact?.phone}
+            />
+          </div>
+        </fieldset>
 
         {showSecondary ? (
           <div className="mt-8 border-t border-zinc-100 pt-6">
-            <ContactFields prefix="secondary" legend="Secondary Contact" />
+            <fieldset>
+              <legend className="mb-4 text-base font-semibold text-zinc-900">
+                Secondary Contact
+              </legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="secondary-name"
+                  label="Name"
+                  required
+                  registration={register('secondaryContact.name')}
+                  error={errors.secondaryContact?.name}
+                />
+                <Field
+                  id="secondary-role"
+                  label="Role / Position"
+                  registration={register('secondaryContact.role')}
+                  error={errors.secondaryContact?.role}
+                />
+                <Field
+                  id="secondary-email"
+                  label="Email"
+                  type="email"
+                  registration={register('secondaryContact.email')}
+                  error={errors.secondaryContact?.email}
+                />
+                <Field
+                  id="secondary-phone"
+                  label="Phone"
+                  type="tel"
+                  registration={register('secondaryContact.phone')}
+                  error={errors.secondaryContact?.phone}
+                />
+              </div>
+            </fieldset>
             <button
               type="button"
-              onClick={() => setShowSecondary(false)}
+              onClick={hideSecondary}
               className="mt-4 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-800"
             >
               Remove secondary contact
@@ -128,7 +282,7 @@ export function OrganisationForm() {
         <label htmlFor="notes" className="sr-only">
           Notes
         </label>
-        <textarea id="notes" rows={4} className={inputClass} />
+        <textarea id="notes" rows={4} className={inputClass} {...register('notes')} />
       </Card>
 
       <div className="flex items-center gap-3">
@@ -140,9 +294,10 @@ export function OrganisationForm() {
         </Link>
         <button
           type="submit"
-          className="bg-brand-600 hover:bg-brand-700 rounded-md px-5 py-2.5 text-sm font-semibold text-white transition-colors"
+          disabled={isSubmitting}
+          className="bg-brand-600 hover:bg-brand-700 rounded-md px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Save Organisation
+          {isSubmitting ? 'Saving...' : 'Save Organisation'}
         </button>
       </div>
     </form>
