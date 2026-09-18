@@ -115,3 +115,49 @@ export function toCreateOrganisationInput(values: OrganisationFormValues) {
     notes: emptyToNull(values.notes),
   }
 }
+
+/** Convert a stored organisation back into form values for the edit screen. */
+export function toOrganisationFormValues(organisation: {
+  name: string
+  type: OrganisationFormValues['type']
+  industry: string | null
+  country: string
+  website: string | null
+  relationshipOwner: string
+  tags: string[]
+  notes: string | null
+  primaryContact: { name: string; role: string | null; email: string | null; phone: string | null }
+  secondaryContact: {
+    name: string
+    role: string | null
+    email: string | null
+    phone: string | null
+  } | null
+}): OrganisationFormValues {
+  const contact = (input: {
+    name: string
+    role: string | null
+    email: string | null
+    phone: string | null
+  }) => ({
+    name: input.name,
+    role: input.role ?? '',
+    email: input.email ?? '',
+    phone: input.phone ?? '',
+  })
+
+  return {
+    name: organisation.name,
+    type: organisation.type,
+    industry: organisation.industry ?? '',
+    country: organisation.country,
+    website: organisation.website ?? '',
+    relationshipOwner: organisation.relationshipOwner,
+    tags: organisation.tags.join(', '),
+    notes: organisation.notes ?? '',
+    primaryContact: contact(organisation.primaryContact),
+    secondaryContact: organisation.secondaryContact
+      ? contact(organisation.secondaryContact)
+      : undefined,
+  }
+}

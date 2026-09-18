@@ -1,30 +1,44 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { getOrganisation } from '@/features/organisations/actions/organisations.actions'
+import { ArchiveOrganisationButton } from '@/features/organisations/components/ArchiveOrganisationButton'
 import { OrganisationDetail } from '@/features/organisations/components/OrganisationDetail'
 
 export const metadata: Metadata = {
   title: 'Organisation',
 }
 
-/**
- * The heading shows a generic label until the organisation is loaded — the
- * prototype shows the organisation's name here.
- */
-export default function OrganisationDetailPage() {
+export default async function OrganisationDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const result = await getOrganisation(id)
+
+  if (!result.success || !result.data) notFound()
+
+  const organisation = result.data
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Organisation"
+        title={organisation.name}
         actions={
-          <button
-            type="button"
-            className="text-brand-600 rounded-md border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-zinc-50"
-          >
-            Edit Organisation
-          </button>
+          <>
+            <ArchiveOrganisationButton id={organisation.id} name={organisation.name} />
+            <Link
+              href={`/organisations/${organisation.id}/edit`}
+              className="text-brand-600 rounded-md border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-zinc-50"
+            >
+              Edit Organisation
+            </Link>
+          </>
         }
       />
-      <OrganisationDetail />
+      <OrganisationDetail organisation={organisation} />
     </div>
   )
 }

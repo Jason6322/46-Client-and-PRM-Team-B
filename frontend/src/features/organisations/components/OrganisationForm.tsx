@@ -8,12 +8,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Card } from '@/components/shared/Card'
 import { ORGANISATION_TYPES } from '@/features/organisations/constants'
-import { createOrganisation } from '@/features/organisations/actions/organisations.actions'
+import {
+  createOrganisation,
+  updateOrganisation,
+} from '@/features/organisations/actions/organisations.actions'
 import {
   organisationFormSchema,
   toCreateOrganisationInput,
+  toOrganisationFormValues,
   type OrganisationFormValues,
 } from '@/lib/validations/organisation'
+import type { OrganisationListItem } from '@/features/organisations/types'
 import { cn } from '@/lib/utils'
 
 /**
@@ -67,9 +72,10 @@ function Field({
   )
 }
 
-export function OrganisationForm() {
+export function OrganisationForm({ organisation }: { organisation?: OrganisationListItem }) {
   const router = useRouter()
-  const [showSecondary, setShowSecondary] = useState(false)
+  const isEdit = organisation !== undefined
+  const [showSecondary, setShowSecondary] = useState(organisation?.secondaryContact != null)
 
   const {
     register,
@@ -78,16 +84,18 @@ export function OrganisationForm() {
     formState: { errors, isSubmitting },
   } = useForm<OrganisationFormValues>({
     resolver: zodResolver(organisationFormSchema),
-    defaultValues: {
-      name: '',
-      industry: '',
-      country: '',
-      website: '',
-      relationshipOwner: '',
-      tags: '',
-      notes: '',
-      primaryContact: { name: '', role: '', email: '', phone: '' },
-    },
+    defaultValues: organisation
+      ? toOrganisationFormValues(organisation)
+      : {
+          name: '',
+          industry: '',
+          country: '',
+          website: '',
+          relationshipOwner: '',
+          tags: '',
+          notes: '',
+          primaryContact: { name: '', role: '', email: '', phone: '' },
+        },
   })
 
   const hideSecondary = () => {
@@ -96,15 +104,31 @@ export function OrganisationForm() {
   }
 
   const onSubmit = handleSubmit(async (values) => {
-    const result = await createOrganisation(toCreateOrganisationInput(values))
+    const payload = toCreateOrganisationInput(values)
 
-    if (!result.success || !result.data) {
-      toast.error(result.error ?? 'Failed to create organisation')
+    if (organisation) {
+      const updated = await updateOrganisation(organisation.id, payload)
+
+      if (!updated.success) {
+        toast.error(updated.error ?? 'Failed to update organisation')
+        return
+      }
+
+      toast.success(`${values.name.trim()} updated`)
+      router.push(`/organisations/${organisation.id}`)
+      router.refresh()
+      return
+    }
+
+    const created = await createOrganisation(payload)
+
+    if (!created.success || !created.data) {
+      toast.error(created.error ?? 'Failed to create organisation')
       return
     }
 
     toast.success(`${values.name.trim()} added`)
-    router.push(`/organisations/${result.data.id}`)
+    router.push(`/organisations/${created.data.id}`)
   })
 
   return (
@@ -287,7 +311,7 @@ export function OrganisationForm() {
 
       <div className="flex items-center gap-3">
         <Link
-          href="/organisations"
+          href={organisation ? `/organisations/${organisation.id}` : '/organisations'}
           className="text-brand-600 rounded-md border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-zinc-50"
         >
           Cancel
@@ -297,7 +321,7 @@ export function OrganisationForm() {
           disabled={isSubmitting}
           className="bg-brand-600 hover:bg-brand-700 rounded-md px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Saving...' : 'Save Organisation'}
+          {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Organisation'}
         </button>
       </div>
     </form>

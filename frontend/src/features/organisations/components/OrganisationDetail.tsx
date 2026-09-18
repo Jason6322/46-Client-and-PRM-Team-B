@@ -3,15 +3,16 @@
 import { useState } from 'react'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn } from '@/lib/utils'
+import { cn, formatRelativeTime } from '@/lib/utils'
 import { ContactsCard } from './ContactsCard'
 import { OrganisationDetailsCard } from './OrganisationDetailsCard'
+import type { OrganisationListItem } from '@/features/organisations/types'
 
 /**
  * Organisation detail — screen 4 of the approved prototype.
  *
- * Layout and styling only. The tabs switch, but no panel is wired to a data
- * source yet, so each renders its placeholder or empty state.
+ * The Overview tab is wired to real data. The remaining tabs belong to
+ * features that are not built yet, so they render their empty state.
  */
 
 const TABS = [
@@ -24,7 +25,7 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]
 
-export function OrganisationDetail() {
+export function OrganisationDetail({ organisation }: { organisation: OrganisationListItem }) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
 
   return (
@@ -61,17 +62,65 @@ export function OrganisationDetail() {
       {activeTab === 'Overview' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-6">
-            <OrganisationDetailsCard />
-            <ContactsCard />
+            <OrganisationDetailsCard
+              industry={organisation.industry ?? undefined}
+              country={organisation.country}
+              website={organisation.website ?? undefined}
+              relationshipOwner={organisation.relationshipOwner}
+              tags={organisation.tags}
+            />
+            <ContactsCard
+              primary={{
+                name: organisation.primaryContact.name,
+                role: organisation.primaryContact.role ?? undefined,
+                email: organisation.primaryContact.email ?? undefined,
+              }}
+              secondary={
+                organisation.secondaryContact
+                  ? {
+                      name: organisation.secondaryContact.name,
+                      role: organisation.secondaryContact.role ?? undefined,
+                      email: organisation.secondaryContact.email ?? undefined,
+                    }
+                  : undefined
+              }
+              notes={organisation.notes ?? undefined}
+            />
           </div>
 
           <div className="space-y-6">
             <Card title="Pipeline Status">
-              <EmptyState title="No pipeline status yet" />
+              <span className="bg-brand-600 inline-block rounded-full px-3 py-1 text-xs font-semibold text-white">
+                {organisation.pipelineStage}
+              </span>
+              <dl className="mt-4 space-y-1 text-sm text-zinc-500">
+                <div>
+                  <dt className="inline">Last updated: </dt>
+                  <dd className="inline">{formatRelativeTime(organisation.updatedAt)}</dd>
+                </div>
+                <div>
+                  <dt className="inline">Last activity: </dt>
+                  <dd className="inline">{formatRelativeTime(organisation.lastActivityAt)}</dd>
+                </div>
+                <div>
+                  <dt className="inline">Org status: </dt>
+                  <dd className="inline">
+                    {organisation.deletedAt === null ? 'Active' : 'Archived'}
+                  </dd>
+                </div>
+              </dl>
             </Card>
 
             <Card title="Activity Timeline">
-              <EmptyState title="No activity yet" />
+              <ul className="space-y-2 text-sm text-zinc-600">
+                <li>Organisation added to CRM ({formatRelativeTime(organisation.createdAt)})</li>
+                {organisation.updatedAt !== organisation.createdAt && (
+                  <li>Details updated ({formatRelativeTime(organisation.updatedAt)})</li>
+                )}
+              </ul>
+              <p className="mt-4 text-xs text-zinc-400">
+                Calls, meetings and emails appear here once activity logging is built.
+              </p>
             </Card>
 
             <Card title="Linked Opportunities">
