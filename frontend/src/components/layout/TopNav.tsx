@@ -22,10 +22,28 @@ const navItems = [
   { href: '/opportunities', label: 'Opportunities' },
 ]
 
+/** "Tommy Ngo" → "TN". Returns null when there is no name to work from. */
+function initialsFrom(name: string | null | undefined) {
+  if (!name) return null
+  const letters = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+  return letters ? letters.toUpperCase() : null
+}
+
 export function TopNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const { signOut } = useAuth()
+  const { signOut, user, profile } = useAuth()
+
+  const displayName = profile?.displayName ?? user?.email ?? 'Account'
+  const initials = initialsFrom(profile?.displayName)
+  // UserProfile.role is the permission role ('user'), not a job title — the
+  // prototype's "UX Designer" needs a jobTitle field that the schema lacks.
+  const roleLabel = profile?.role === 'user' ? 'Team member' : (profile?.role ?? '')
 
   const handleSignOut = async () => {
     await signOut()
@@ -62,10 +80,18 @@ export function TopNav() {
         <div className="ml-auto flex items-center gap-2">
           <Link
             href="/profile"
-            aria-label="Profile"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-white/10"
           >
-            <User className="h-4 w-4" />
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white"
+            >
+              {initials ?? <User className="h-4 w-4 text-zinc-400" />}
+            </span>
+            <span className="hidden text-left leading-tight sm:block">
+              <span className="block text-sm font-semibold text-white">{displayName}</span>
+              <span className="block text-xs text-zinc-400">{roleLabel}</span>
+            </span>
           </Link>
           <button
             type="button"
