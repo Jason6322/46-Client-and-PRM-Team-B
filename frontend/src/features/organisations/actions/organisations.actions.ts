@@ -8,6 +8,7 @@ import { createOrganisationSchema, updateOrganisationSchema } from '@/lib/valida
 import { DEFAULT_PIPELINE_STAGE } from '@/features/organisations/constants'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
+import type { OrganisationListItem } from '@/features/organisations/types'
 
 /**
  * Organisation Server Actions — create, view, edit and archive.
@@ -19,18 +20,7 @@ import type { Organisation } from '@/types/firestore'
 
 const COLLECTION = 'organisations'
 
-/** Firestore Timestamps cannot cross the server/client boundary — send millis. */
-type SerialisedOrganisation = Omit<
-  Organisation,
-  'createdAt' | 'updatedAt' | 'lastActivityAt' | 'deletedAt'
-> & {
-  createdAt: number
-  updatedAt: number
-  lastActivityAt: number
-  deletedAt: number | null
-}
-
-function serialise(id: string, data: FirebaseFirestore.DocumentData): SerialisedOrganisation {
+function serialise(id: string, data: FirebaseFirestore.DocumentData): OrganisationListItem {
   const toMillis = (value: unknown) => (value instanceof Timestamp ? value.toMillis() : Date.now())
 
   return {
@@ -73,7 +63,7 @@ export async function createOrganisation(input: unknown): Promise<ActionResult<{
 }
 
 /** Fetch a single organisation. Archived records are treated as missing. */
-export async function getOrganisation(id: string): Promise<ActionResult<SerialisedOrganisation>> {
+export async function getOrganisation(id: string): Promise<ActionResult<OrganisationListItem>> {
   await requireAuth()
 
   try {
@@ -99,7 +89,7 @@ export async function getOrganisation(id: string): Promise<ActionResult<Serialis
  * uses the automatic single-field index. Revisit if the collection outgrows
  * a single fetch.
  */
-export async function listOrganisations(): Promise<ActionResult<SerialisedOrganisation[]>> {
+export async function listOrganisations(): Promise<ActionResult<OrganisationListItem[]>> {
   await requireAuth()
 
   try {
