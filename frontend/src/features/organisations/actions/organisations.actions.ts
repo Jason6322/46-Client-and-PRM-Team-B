@@ -90,20 +90,26 @@ export async function getOrganisation(id: string): Promise<ActionResult<Serialis
   }
 }
 
-/** List every active organisation, most recently active first. */
+/**
+ * List every active organisation, most recently active first.
+ *
+ * Archived records are filtered out in memory rather than with a
+ * `where('deletedAt', '==', null)` clause. Combining that filter with an
+ * orderBy on a different field would need a composite index; ordering alone
+ * uses the automatic single-field index. Revisit if the collection outgrows
+ * a single fetch.
+ */
 export async function listOrganisations(): Promise<ActionResult<SerialisedOrganisation[]>> {
   await requireAuth()
 
   try {
-    const snapshot = await adminDb
-      .collection(COLLECTION)
-      .where('deletedAt', '==', null)
-      .orderBy('lastActivityAt', 'desc')
-      .get()
+    const snapshot = await adminDb.collection(COLLECTION).orderBy('lastActivityAt', 'desc').get()
 
     return {
       success: true,
-      data: snapshot.docs.map((doc) => serialise(doc.id, doc.data())),
+      data: snapshot.docs
+        .map((doc) => serialise(doc.id, doc.data()))
+        .filter((organisation) => organisation.deletedAt === null),
     }
   } catch {
     return { success: false, error: 'Failed to load organisations' }
