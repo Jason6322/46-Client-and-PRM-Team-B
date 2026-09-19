@@ -16,6 +16,7 @@ const sampleOrganisation: Organisation = {
   industry: 'Food Distribution',
   country: 'Australia',
   website: 'https://www.greenleaffoods.com.au',
+  relationshipStatus: 'Active',
   pipelineStage: 'Negotiation',
   tags: ['priority', 'food'],
   notes: 'Prefers email over calls.',

@@ -48,6 +48,7 @@ router.post('/', async (req, res, next) => {
       name: input.name,
       type: input.type,
       relationshipOwner: input.relationshipOwner,
+      relationshipStatus: input.relationshipStatus ?? null,
       industry: input.industry ?? null,
       country: input.country ?? null,
       website: input.website ?? null,

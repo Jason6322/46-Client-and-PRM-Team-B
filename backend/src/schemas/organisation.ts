@@ -3,9 +3,13 @@ import { z } from 'zod'
 /**
  * Organisation & stakeholder schema — Epic 1.
  *
+ * Field list confirmed by the BA (18 Sep). Relationship status is kept separate
+ * from pipeline stage, and its values are intentionally not hard-coded — the BRD
+ * does not define a fixed list yet.
+ *
  * Contacts are embedded on the organisation document rather than stored in a
- * subcollection: Epic 1 only ever displays them inside an organisation profile
- * (primary + secondary), so a subcollection would add reads without adding value.
+ * subcollection: Epic 1 only ever displays them inside an organisation profile,
+ * so a subcollection would add reads without adding value.
  *
  * Timestamps are ISO 8601 strings so the whole document is Zod-validatable and
  * the routes never import firebase-admin directly (enforced by the conventions test).
@@ -44,6 +48,7 @@ export const organisationSchema = z.object({
   country: z.string().nullable(),
   website: z.string().url().nullable(),
   relationshipOwner: z.string().min(1),
+  relationshipStatus: z.string().nullable(),
   pipelineStage: z.enum(PIPELINE_STAGES),
   tags: z.array(z.string()),
   notes: z.string().nullable(),
@@ -60,6 +65,7 @@ export const createOrganisationSchema = z.object({
   name: z.string().min(1),
   type: z.enum(ORGANISATION_TYPES),
   relationshipOwner: z.string().min(1),
+  relationshipStatus: z.string().nullable().optional(),
   industry: z.string().nullable().optional(),
   country: z.string().nullable().optional(),
   website: z.string().url().nullable().optional(),
@@ -75,6 +81,7 @@ export const updateOrganisationSchema = z
     name: z.string().min(1).optional(),
     type: z.enum(ORGANISATION_TYPES).optional(),
     relationshipOwner: z.string().min(1).optional(),
+    relationshipStatus: z.string().nullable().optional(),
     industry: z.string().nullable().optional(),
     country: z.string().nullable().optional(),
     website: z.string().url().nullable().optional(),
