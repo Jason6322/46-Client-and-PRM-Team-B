@@ -25,12 +25,20 @@ export default async function OrganisationsPage() {
         title="Organisations"
         description="Every organisation, contact and tag in the CRM"
         actions={
-          <Link
-            href="/organisations/new"
-            className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
-          >
-            + Add Organisation
-          </Link>
+          <>
+            <Link
+              href="/organisations/archived"
+              className="rounded-md border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-50"
+            >
+              Archived
+            </Link>
+            <Link
+              href="/organisations/new"
+              className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+            >
+              + Add Organisation
+            </Link>
+          </>
         }
       />
 

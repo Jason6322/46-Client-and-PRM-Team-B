@@ -106,6 +106,30 @@ export async function listOrganisations(): Promise<ActionResult<OrganisationList
   }
 }
 
+/**
+ * List archived organisations, most recently archived first.
+ *
+ * Filtered in memory for the same reason as listOrganisations — combining a
+ * filter with an orderBy on another field would need a composite index.
+ */
+export async function listArchivedOrganisations(): Promise<ActionResult<OrganisationListItem[]>> {
+  await requireAuth()
+
+  try {
+    const snapshot = await adminDb.collection(COLLECTION).orderBy('lastActivityAt', 'desc').get()
+
+    return {
+      success: true,
+      data: snapshot.docs
+        .map((doc) => serialise(doc.id, doc.data()))
+        .filter((organisation) => organisation.deletedAt !== null)
+        .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0)),
+    }
+  } catch {
+    return { success: false, error: 'Failed to load archived organisations' }
+  }
+}
+
 /** Edit an organisation. Accepts a partial set of fields. */
 export async function updateOrganisation(id: string, input: unknown): Promise<ActionResult> {
   await requireAuth()
@@ -161,6 +185,7 @@ export async function restoreOrganisation(id: string): Promise<ActionResult> {
     })
 
     revalidatePath('/organisations')
+    revalidatePath('/organisations/archived')
     return { success: true }
   } catch {
     return { success: false, error: 'Failed to restore organisation' }
