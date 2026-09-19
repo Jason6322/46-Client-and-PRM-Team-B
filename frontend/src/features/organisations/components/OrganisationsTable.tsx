@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -45,6 +46,7 @@ function matches(organisation: OrganisationListItem, term: string) {
 }
 
 export function OrganisationsTable({ organisations }: { organisations: OrganisationListItem[] }) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
 
   const filtered = useMemo(() => {
@@ -52,6 +54,19 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
     if (!term) return organisations
     return organisations.filter((organisation) => matches(organisation, term))
   }, [organisations, search])
+
+  /**
+   * Row click is a convenience for the mouse only. The organisation name stays
+   * a real link, so keyboard navigation, middle-click and "copy link address"
+   * keep working — a row-level onClick alone would break all three.
+   *
+   * Ignored when the user was selecting text, so dragging across a row to copy
+   * a value does not navigate away.
+   */
+  const openRow = (id: string) => {
+    if (window.getSelection()?.toString()) return
+    router.push(`/organisations/${id}`)
+  }
 
   return (
     <div className="space-y-6">
@@ -100,7 +115,8 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
                 {filtered.map((organisation) => (
                   <tr
                     key={organisation.id}
-                    className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50"
+                    onClick={() => openRow(organisation.id)}
+                    className="cursor-pointer border-b border-zinc-50 last:border-0 hover:bg-zinc-50"
                   >
                     <td className="px-6 py-4 text-sm font-medium">
                       <Link
