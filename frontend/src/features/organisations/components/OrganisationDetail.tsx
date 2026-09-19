@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { ContactsCard } from './ContactsCard'
 import { OrganisationDetailsCard } from './OrganisationDetailsCard'
+import { PipelineStageSelect } from './PipelineStageSelect'
 import type { OrganisationListItem } from '@/features/organisations/types'
 
 /**
@@ -90,9 +91,7 @@ export function OrganisationDetail({ organisation }: { organisation: Organisatio
 
           <div className="space-y-6">
             <Card title="Pipeline Status">
-              <span className="bg-brand-600 inline-block rounded-full px-3 py-1 text-xs font-semibold text-white">
-                {organisation.pipelineStage}
-              </span>
+              <PipelineStageSelect id={organisation.id} stage={organisation.pipelineStage} />
               <dl className="mt-4 space-y-1 text-sm text-zinc-500">
                 <div>
                   <dt className="inline">Last updated: </dt>

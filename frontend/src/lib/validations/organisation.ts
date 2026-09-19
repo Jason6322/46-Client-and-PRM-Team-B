@@ -53,6 +53,9 @@ export const createOrganisationSchema = z.object({
 
 export const updateOrganisationSchema = createOrganisationSchema.partial()
 
+/** Standalone stage validation, for the stage control on the detail screen. */
+export const pipelineStageSchema = z.enum(PIPELINE_STAGES, { message: 'Unknown pipeline stage' })
+
 export type CreateOrganisationValues = z.input<typeof createOrganisationSchema>
 export type UpdateOrganisationValues = z.input<typeof updateOrganisationSchema>
 
@@ -109,7 +112,6 @@ export function toCreateOrganisationInput(values: OrganisationFormValues) {
       .split(',')
       .map((tag) => tag.trim())
       .filter(Boolean),
-    pipelineStage: DEFAULT_PIPELINE_STAGE,
     primaryContact: contact(values.primaryContact),
     secondaryContact: values.secondaryContact ? contact(values.secondaryContact) : null,
     notes: emptyToNull(values.notes),

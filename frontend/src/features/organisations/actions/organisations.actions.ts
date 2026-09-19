@@ -4,7 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { requireAuth } from '@/actions/auth.actions'
 import { adminDb } from '@/lib/firebase/admin'
-import { createOrganisationSchema, updateOrganisationSchema } from '@/lib/validations/organisation'
+import {
+  createOrganisationSchema,
+  pipelineStageSchema,
+  updateOrganisationSchema,
+} from '@/lib/validations/organisation'
 import { DEFAULT_PIPELINE_STAGE } from '@/features/organisations/constants'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
@@ -154,6 +158,37 @@ export async function updateOrganisation(id: string, input: unknown): Promise<Ac
     return { success: true }
   } catch {
     return { success: false, error: 'Failed to update organisation' }
+  }
+}
+
+/**
+ * Move an organisation to a different pipeline stage.
+ *
+ * Kept separate from updateOrganisation because advancing a relationship is
+ * the most frequent action in the CRM and should not require submitting the
+ * whole edit form. Any stage can move to any other — relationships genuinely
+ * move backwards, so this is deliberately not a one-way funnel.
+ */
+export async function changePipelineStage(id: string, stage: unknown): Promise<ActionResult> {
+  await requireAuth()
+
+  const parsed = pipelineStageSchema.safeParse(stage)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Unknown pipeline stage' }
+  }
+
+  try {
+    await adminDb.collection(COLLECTION).doc(id).update({
+      pipelineStage: parsed.data,
+      updatedAt: FieldValue.serverTimestamp(),
+      lastActivityAt: FieldValue.serverTimestamp(),
+    })
+
+    revalidatePath('/organisations')
+    revalidatePath(`/organisations/${id}`)
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to change pipeline stage' }
   }
 }
 
