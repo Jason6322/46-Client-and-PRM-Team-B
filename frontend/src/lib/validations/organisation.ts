@@ -4,6 +4,7 @@ import {
   ORGANISATION_TYPES,
   PIPELINE_STAGES,
 } from '@/features/organisations/constants'
+import { isDateOnly, millisToDateOnly } from '@/features/organisations/followUp'
 
 /**
  * Organisation input validation.
@@ -19,6 +20,13 @@ const optionalText = z
   .trim()
   .transform((value) => (value.length > 0 ? value : null))
   .nullable()
+
+/** A calendar date from a date input ("2026-09-02"), or null for none. */
+const dueDate = z
+  .string()
+  .refine(isDateOnly, 'Enter a valid date')
+  .nullable()
+  .or(z.literal('').transform(() => null))
 
 export const organisationContactSchema = z.object({
   name: z.string().trim().min(1, 'Contact name is required'),
@@ -49,9 +57,25 @@ export const createOrganisationSchema = z.object({
   primaryContact: organisationContactSchema,
   secondaryContact: organisationContactSchema.nullable().default(null),
   notes: optionalText,
+  nextAction: optionalText.default(null),
+  nextActionDueAt: dueDate.default(null),
 })
 
 export const updateOrganisationSchema = createOrganisationSchema.partial()
+
+/**
+ * The follow-up on its own, for the inline editor on the profile.
+ * A due date with nothing to do is meaningless, so it needs an action.
+ */
+export const nextActionSchema = z
+  .object({
+    nextAction: optionalText,
+    nextActionDueAt: dueDate,
+  })
+  .refine((value) => value.nextActionDueAt === null || value.nextAction !== null, {
+    message: 'Add the follow-up before setting a due date',
+    path: ['nextAction'],
+  })
 
 /** Standalone stage validation, for the stage control on the detail screen. */
 export const pipelineStageSchema = z.enum(PIPELINE_STAGES, { message: 'Unknown pipeline stage' })
@@ -75,18 +99,25 @@ const contactFormSchema = z.object({
   phone: z.string().trim(),
 })
 
-export const organisationFormSchema = z.object({
-  name: z.string().trim().min(1, 'Organisation name is required').max(200),
-  type: z.enum(ORGANISATION_TYPES, { message: 'Select a type' }),
-  industry: z.string().trim(),
-  country: z.string().trim().min(1, 'Country is required').max(100),
-  website: z.union([z.string().trim().url('Enter a valid URL'), z.literal('')]),
-  relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
-  tags: z.string(),
-  notes: z.string(),
-  primaryContact: contactFormSchema,
-  secondaryContact: contactFormSchema.optional(),
-})
+export const organisationFormSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Organisation name is required').max(200),
+    type: z.enum(ORGANISATION_TYPES, { message: 'Select a type' }),
+    industry: z.string().trim(),
+    country: z.string().trim().min(1, 'Country is required').max(100),
+    website: z.union([z.string().trim().url('Enter a valid URL'), z.literal('')]),
+    relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
+    tags: z.string(),
+    notes: z.string(),
+    nextAction: z.string().trim().max(300),
+    nextActionDueAt: z.union([z.string().refine(isDateOnly, 'Enter a valid date'), z.literal('')]),
+    primaryContact: contactFormSchema,
+    secondaryContact: contactFormSchema.optional(),
+  })
+  .refine((values) => values.nextActionDueAt === '' || values.nextAction.trim() !== '', {
+    message: 'Add the follow-up before setting a due date',
+    path: ['nextAction'],
+  })
 
 export type OrganisationFormValues = z.infer<typeof organisationFormSchema>
 
@@ -115,6 +146,8 @@ export function toCreateOrganisationInput(values: OrganisationFormValues) {
     primaryContact: contact(values.primaryContact),
     secondaryContact: values.secondaryContact ? contact(values.secondaryContact) : null,
     notes: emptyToNull(values.notes),
+    nextAction: emptyToNull(values.nextAction),
+    nextActionDueAt: values.nextActionDueAt || null,
   }
 }
 
@@ -128,6 +161,8 @@ export function toOrganisationFormValues(organisation: {
   relationshipOwner: string
   tags: string[]
   notes: string | null
+  nextAction: string | null
+  nextActionDueAt: number | null
   primaryContact: { name: string; role: string | null; email: string | null; phone: string | null }
   secondaryContact: {
     name: string
@@ -157,6 +192,9 @@ export function toOrganisationFormValues(organisation: {
     relationshipOwner: organisation.relationshipOwner,
     tags: organisation.tags.join(', '),
     notes: organisation.notes ?? '',
+    nextAction: organisation.nextAction ?? '',
+    nextActionDueAt:
+      organisation.nextActionDueAt === null ? '' : millisToDateOnly(organisation.nextActionDueAt),
     primaryContact: contact(organisation.primaryContact),
     secondaryContact: organisation.secondaryContact
       ? contact(organisation.secondaryContact)

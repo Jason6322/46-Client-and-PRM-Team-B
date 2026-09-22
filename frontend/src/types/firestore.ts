@@ -53,6 +53,10 @@ export interface Organisation {
   primaryContact: OrganisationContact
   secondaryContact: OrganisationContact | null
   notes: string | null
+  /** The next follow-up owed to this organisation, e.g. "Send revised contract". */
+  nextAction: string | null
+  /** When the follow-up is due. Stored at 12:00 UTC on the due day. */
+  nextActionDueAt: Timestamp | null
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp

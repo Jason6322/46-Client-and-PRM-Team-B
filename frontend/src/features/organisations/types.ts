@@ -9,10 +9,11 @@ import type { Organisation } from '@/types/firestore'
  */
 export type OrganisationListItem = Omit<
   Organisation,
-  'createdAt' | 'updatedAt' | 'lastActivityAt' | 'deletedAt'
+  'createdAt' | 'updatedAt' | 'lastActivityAt' | 'deletedAt' | 'nextActionDueAt'
 > & {
   createdAt: number
   updatedAt: number
   lastActivityAt: number
   deletedAt: number | null
+  nextActionDueAt: number | null
 }

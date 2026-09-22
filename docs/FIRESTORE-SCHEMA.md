@@ -65,6 +65,8 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 | `primaryContact`    | `OrganisationContact`                              | Yes      | Main contact — `name` required                      |
 | `secondaryContact`  | `OrganisationContact \| null`                      | Yes      | Optional second contact                             |
 | `notes`             | `string \| null`                                   | Yes      | Free-text notes                                     |
+| `nextAction`        | `string \| null`                                   | No       | Next follow-up owed; absent on older docs → `null`  |
+| `nextActionDueAt`   | `Timestamp \| null`                                | No       | Follow-up due date, stored at 12:00 UTC on the day  |
 | `createdBy`         | `string`                                           | Yes      | UID of the creating user                            |
 | `createdAt`         | `Timestamp`                                        | Yes      | When the document was created                       |
 | `updatedAt`         | `Timestamp`                                        | Yes      | When the document was last updated                  |

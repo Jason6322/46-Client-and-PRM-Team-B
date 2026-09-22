@@ -6,10 +6,12 @@ import { requireAuth } from '@/actions/auth.actions'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   createOrganisationSchema,
+  nextActionSchema,
   pipelineStageSchema,
   updateOrganisationSchema,
 } from '@/lib/validations/organisation'
 import { DEFAULT_PIPELINE_STAGE } from '@/features/organisations/constants'
+import { dateOnlyToDate } from '@/features/organisations/followUp'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
 import type { OrganisationListItem } from '@/features/organisations/types'
@@ -34,7 +36,16 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Organisati
     updatedAt: toMillis(data.updatedAt),
     lastActivityAt: toMillis(data.lastActivityAt),
     deletedAt: data.deletedAt instanceof Timestamp ? data.deletedAt.toMillis() : null,
+    // Documents created before follow-ups existed have neither field.
+    nextAction: typeof data.nextAction === 'string' ? data.nextAction : null,
+    nextActionDueAt:
+      data.nextActionDueAt instanceof Timestamp ? data.nextActionDueAt.toMillis() : null,
   }
+}
+
+/** "2026-09-02" from a date input → a Firestore Timestamp, or null for none. */
+function toDueTimestamp(value: string | null): Timestamp | null {
+  return value === null ? null : Timestamp.fromDate(dateOnlyToDate(value))
 }
 
 /** Create an organisation. Returns the new document id. */
@@ -48,8 +59,10 @@ export async function createOrganisation(input: unknown): Promise<ActionResult<{
 
   try {
     const now = FieldValue.serverTimestamp()
+    const { nextActionDueAt, ...fields } = parsed.data
     const ref = await adminDb.collection(COLLECTION).add({
-      ...parsed.data,
+      ...fields,
+      nextActionDueAt: toDueTimestamp(nextActionDueAt),
       pipelineStage: parsed.data.pipelineStage ?? DEFAULT_PIPELINE_STAGE,
       createdBy: session.uid,
       createdAt: now,
@@ -144,11 +157,17 @@ export async function updateOrganisation(id: string, input: unknown): Promise<Ac
   }
 
   try {
+    // A partial update may omit the due date; only convert it when present,
+    // so an edit that doesn't send it leaves the stored value alone.
+    const { nextActionDueAt, ...fields } = parsed.data
     await adminDb
       .collection(COLLECTION)
       .doc(id)
       .update({
-        ...parsed.data,
+        ...fields,
+        ...(nextActionDueAt !== undefined && {
+          nextActionDueAt: toDueTimestamp(nextActionDueAt),
+        }),
         updatedAt: FieldValue.serverTimestamp(),
         lastActivityAt: FieldValue.serverTimestamp(),
       })
@@ -189,6 +208,40 @@ export async function changePipelineStage(id: string, stage: unknown): Promise<A
     return { success: true }
   } catch {
     return { success: false, error: 'Failed to change pipeline stage' }
+  }
+}
+
+/**
+ * Set or clear an organisation's follow-up from the profile.
+ *
+ * Separate from updateOrganisation for the same reason as the stage control:
+ * logging the next follow-up should not mean submitting the whole edit form.
+ * Passing an empty action and no date clears it.
+ */
+export async function setNextAction(id: string, input: unknown): Promise<ActionResult> {
+  await requireAuth()
+
+  const parsed = nextActionSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid follow-up' }
+  }
+
+  try {
+    await adminDb
+      .collection(COLLECTION)
+      .doc(id)
+      .update({
+        nextAction: parsed.data.nextAction,
+        nextActionDueAt: toDueTimestamp(parsed.data.nextActionDueAt),
+        updatedAt: FieldValue.serverTimestamp(),
+        lastActivityAt: FieldValue.serverTimestamp(),
+      })
+
+    revalidatePath('/organisations')
+    revalidatePath(`/organisations/${id}`)
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to save follow-up' }
   }
 }
 
