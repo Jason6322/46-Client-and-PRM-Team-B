@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { ContactsCard } from './ContactsCard'
 import { OrganisationDetailsCard } from './OrganisationDetailsCard'
+import { NextActionEditor } from './NextActionEditor'
 import { PipelineStageSelect } from './PipelineStageSelect'
 import type { OrganisationListItem } from '@/features/organisations/types'
 
@@ -92,6 +93,11 @@ export function OrganisationDetail({ organisation }: { organisation: Organisatio
           <div className="space-y-6">
             <Card title="Pipeline Status">
               <PipelineStageSelect id={organisation.id} stage={organisation.pipelineStage} />
+              <NextActionEditor
+                id={organisation.id}
+                nextAction={organisation.nextAction}
+                nextActionDueAt={organisation.nextActionDueAt}
+              />
               <dl className="mt-4 space-y-1 text-sm text-zinc-500">
                 <div>
                   <dt className="inline">Last updated: </dt>
