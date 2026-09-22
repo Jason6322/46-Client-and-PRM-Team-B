@@ -25,7 +25,12 @@ export default defineConfig({
       // Unit tests exercise Server Component modules, so resolve the
       // 'server-only' marker to its react-server (no-op) build instead of the
       // client build, which throws on import.
-      'server-only': resolve(__dirname, '../node_modules/server-only/empty.js'),
+      //
+      // The path is relative to frontend/, not the repo root: pnpm links a
+      // package's direct dependencies into that package's own node_modules and
+      // does not hoist them to the root. The package's exports map only exposes
+      // ".", so require.resolve('server-only/empty.js') is not an option.
+      'server-only': resolve(__dirname, './node_modules/server-only/empty.js'),
     },
   },
 })
