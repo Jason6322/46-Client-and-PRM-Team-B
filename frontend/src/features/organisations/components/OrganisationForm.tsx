@@ -94,6 +94,8 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
           relationshipOwner: '',
           tags: '',
           notes: '',
+          nextAction: '',
+          nextActionDueAt: '',
           primaryContact: { name: '', role: '', email: '', phone: '' },
         },
   })
@@ -300,6 +302,25 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
             + Add Secondary Contact
           </button>
         )}
+      </Card>
+
+      <Card title="Follow-up">
+        <div className="grid gap-5 sm:grid-cols-[2fr_1fr]">
+          <Field
+            id="nextAction"
+            label="Next action"
+            placeholder="e.g. Send revised partnership contract"
+            registration={register('nextAction')}
+            error={errors.nextAction}
+          />
+          <Field
+            id="nextActionDueAt"
+            label="Due"
+            type="date"
+            registration={register('nextActionDueAt')}
+            error={errors.nextActionDueAt}
+          />
+        </div>
       </Card>
 
       <Card title="Notes">
