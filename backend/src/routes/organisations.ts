@@ -7,6 +7,7 @@ import {
   organisationSchema,
   createOrganisationSchema,
   updateOrganisationSchema,
+  EMPTY_RELATIONSHIP,
   type Organisation,
 } from '../schemas/organisation'
 import type { ZodError } from 'zod'
@@ -16,22 +17,20 @@ const SCHEMA_VERSION = 1
 
 const converter = createZodConverter(organisationSchema, SCHEMA_VERSION)
 
-/** Typed handle on the organisations collection. */
 function organisations() {
   return adminDb.collection(COLLECTION).withConverter(converter)
 }
 
-/** Flattens a Zod error into a single readable detail string. */
+//turns a zod error into one readable line for the response
+
 function describe(error: ZodError): string {
   return error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')
 }
 
 const router: ExpressRouter = Router()
 
-/**
- * POST /api/organisations
- * Creates an organisation. Responds 201 with the created record.
- */
+//POST /api/organisations - create an organisation
+
 router.post('/', async (req, res, next) => {
   const parsed = createOrganisationSchema.safeParse(req.body)
   if (!parsed.success) {
@@ -56,6 +55,7 @@ router.post('/', async (req, res, next) => {
       tags: input.tags ?? [],
       notes: input.notes ?? null,
       contacts: input.contacts ?? [],
+      relationship: { ...EMPTY_RELATIONSHIP, ...(input.relationship ?? {}) },
       createdAt: now,
       createdBy: user.uid,
       updatedAt: now,
@@ -70,10 +70,8 @@ router.post('/', async (req, res, next) => {
   }
 })
 
-/**
- * GET /api/organisations
- * Lists every organisation that has not been archived.
- */
+//GET /api/organisations - list everything not archived
+
 router.get('/', async (_req, res, next) => {
   try {
     const snapshot = await organisations().where('deletedAt', '==', null).get()
@@ -85,10 +83,8 @@ router.get('/', async (_req, res, next) => {
   }
 })
 
-/**
- * GET /api/organisations/:id
- * Returns a single organisation. Archived records are treated as not found.
- */
+//GET /api/organisations/:id - archived records count as not found
+
 router.get('/:id', async (req, res, next) => {
   const id = req.params['id']
   if (!id) {
@@ -109,11 +105,8 @@ router.get('/:id', async (req, res, next) => {
   }
 })
 
-/**
- * PATCH /api/organisations/:id
- * Applies a partial update. The merged document is re-validated before it is
- * written, so a bad patch can never leave a malformed record in Firestore.
- */
+//PATCH /api/organisations/:id - partial update, revalidated before saving
+
 router.patch('/:id', async (req, res, next) => {
   const id = req.params['id']
   if (!id) {
@@ -138,6 +131,8 @@ router.patch('/:id', async (req, res, next) => {
     const updated: Organisation = {
       ...existing,
       ...parsed.data,
+      //merged separately so updating one relationship field doesnt wipe the rest
+      relationship: { ...existing.relationship, ...(parsed.data.relationship ?? {}) },
       updatedAt: new Date().toISOString(),
     }
 
@@ -154,11 +149,8 @@ router.patch('/:id', async (req, res, next) => {
   }
 })
 
-/**
- * POST /api/organisations/:id/archive
- * Soft-deletes an organisation by stamping deletedAt. Nothing is ever hard
- * deleted, so the record stays available for reporting and audit.
- */
+//POST /api/organisations/:id/archive - soft delete, nothing is ever removed
+
 router.post('/:id/archive', async (req, res, next) => {
   const id = req.params['id']
   if (!id) {

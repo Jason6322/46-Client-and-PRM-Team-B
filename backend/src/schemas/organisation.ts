@@ -1,19 +1,6 @@
 import { z } from 'zod'
 
-/**
- * Organisation & stakeholder schema — Epic 1.
- *
- * Field list confirmed by the BA (18 Sep). Relationship status is kept separate
- * from pipeline stage, and its values are intentionally not hard-coded — the BRD
- * does not define a fixed list yet.
- *
- * Contacts are embedded on the organisation document rather than stored in a
- * subcollection: Epic 1 only ever displays them inside an organisation profile,
- * so a subcollection would add reads without adding value.
- *
- * Timestamps are ISO 8601 strings so the whole document is Zod-validatable and
- * the routes never import firebase-admin directly (enforced by the conventions test).
- */
+//org and stakeholder schema for epic 1
 
 export const PIPELINE_STAGES = [
   'Prospect',
@@ -32,6 +19,8 @@ export const PIPELINE_STAGES = [
 
 export const ORGANISATION_TYPES = ['Industry Partner', 'Client', 'Collaborator'] as const
 
+//stores contacts within the org record since theyre only required for profile
+
 export const contactSchema = z.object({
   name: z.string().min(1),
   role: z.string().nullable(),
@@ -40,7 +29,24 @@ export const contactSchema = z.object({
   isPrimary: z.boolean(),
 })
 
-/** The full stored document. */
+//stores repationship info - reasech, lead score and nwxt steps with 1 record per org
+
+export const relationshipSchema = z.object({
+  researchInfo: z.string().nullable(),
+  researchStatus: z.string().nullable(),
+  businessBrief: z.string().nullable(),
+  qualificationInfo: z.string().nullable(),
+  leadScore: z.number().int().min(0).max(100).nullable(),
+  outreachStatus: z.string().nullable(),
+  communicationRecord: z.string().nullable(),
+  followUpStatus: z.string().nullable(),
+  nextAction: z.string().nullable(),
+  nextActionDueAt: z.string().datetime().nullable(),
+  relationshipNotes: z.string().nullable(),
+})
+
+//represents the full doc in its firestore representation
+
 export const organisationSchema = z.object({
   name: z.string().min(1),
   type: z.enum(ORGANISATION_TYPES),
@@ -53,6 +59,7 @@ export const organisationSchema = z.object({
   tags: z.array(z.string()),
   notes: z.string().nullable(),
   contacts: z.array(contactSchema),
+  relationship: relationshipSchema,
   createdAt: z.string().datetime(),
   createdBy: z.string().min(1),
   updatedAt: z.string().datetime(),
@@ -60,7 +67,8 @@ export const organisationSchema = z.object({
   _schemaVersion: z.literal(1),
 })
 
-/** Payload accepted by POST /api/organisations. */
+//defines the fields accepted when a new org is created
+
 export const createOrganisationSchema = z.object({
   name: z.string().min(1),
   type: z.enum(ORGANISATION_TYPES),
@@ -73,9 +81,11 @@ export const createOrganisationSchema = z.object({
   tags: z.array(z.string()).optional(),
   notes: z.string().nullable().optional(),
   contacts: z.array(contactSchema).optional(),
+  relationship: relationshipSchema.partial().optional(),
 })
 
-/** Payload accepted by PATCH /api/organisations/:id — every field optional. */
+//defines fields accepted when updating org, all are optional atleast 1 is required
+
 export const updateOrganisationSchema = z
   .object({
     name: z.string().min(1).optional(),
@@ -89,6 +99,7 @@ export const updateOrganisationSchema = z
     tags: z.array(z.string()).optional(),
     notes: z.string().nullable().optional(),
     contacts: z.array(contactSchema).optional(),
+    relationship: relationshipSchema.partial().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
@@ -96,5 +107,22 @@ export const updateOrganisationSchema = z
 
 export type Organisation = z.infer<typeof organisationSchema>
 export type Contact = z.infer<typeof contactSchema>
+export type Relationship = z.infer<typeof relationshipSchema>
 export type CreateOrganisationInput = z.infer<typeof createOrganisationSchema>
 export type UpdateOrganisationInput = z.infer<typeof updateOrganisationSchema>
+
+//empty relationship used when a new org is created
+
+export const EMPTY_RELATIONSHIP: Relationship = {
+  researchInfo: null,
+  researchStatus: null,
+  businessBrief: null,
+  qualificationInfo: null,
+  leadScore: null,
+  outreachStatus: null,
+  communicationRecord: null,
+  followUpStatus: null,
+  nextAction: null,
+  nextActionDueAt: null,
+  relationshipNotes: null,
+}

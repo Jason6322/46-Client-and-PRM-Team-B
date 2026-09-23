@@ -3,10 +3,9 @@ import { adminDb } from '../lib/firebase'
 
 const router: ExpressRouter = Router()
 
-/**
- * GET /api/health
- * Returns service health status, including a live Firestore connectivity check. No auth required.
- */
+//GET /api/health - confrims that the server is rinning and firestore is accessible
+//endpoint doesn't require authentication, making it to be used frm anywhere to verify the system is working
+
 router.get('/', async (_req, res) => {
   try {
     await adminDb.listCollections()

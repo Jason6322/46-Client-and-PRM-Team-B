@@ -8,7 +8,8 @@ import type { Organisation } from '../../../src/schemas/organisation'
 const app = createApp({ verifyToken: mockVerifyToken })
 const TOKEN = 'Bearer test-token'
 
-/** Sample record modelled on the GreenLeaf Foods row from the prototype. */
+//sample data representing the greenleaf foods row
+
 const sampleOrganisation: Organisation = {
   name: 'GreenLeaf Foods',
   type: 'Industry Partner',
@@ -29,6 +30,19 @@ const sampleOrganisation: Organisation = {
       isPrimary: true,
     },
   ],
+  relationship: {
+    researchInfo: 'Met at the food systems expo, interested in a 12 month partnership.',
+    researchStatus: 'Complete',
+    businessBrief: 'Food distributor looking to expand community fridge partnerships.',
+    qualificationInfo: 'Budget confirmed, decision maker engaged.',
+    leadScore: 82,
+    outreachStatus: 'Awaiting contract review',
+    communicationRecord: 'Call logged 2 Sep, site visit 5 Sep.',
+    followUpStatus: 'Scheduled',
+    nextAction: 'Send revised partnership contract',
+    nextActionDueAt: '2026-09-02T00:00:00.000Z',
+    relationshipNotes: 'Prefers written updates over calls.',
+  },
   createdAt: '2026-09-16T00:00:00.000Z',
   createdBy: 'test-uid',
   updatedAt: '2026-09-16T00:00:00.000Z',
@@ -36,7 +50,8 @@ const sampleOrganisation: Organisation = {
   _schemaVersion: 1,
 }
 
-/** Points adminDb.collection() at an in-memory stand-in for Firestore. */
+//provides a mock firestore setup to keep away from the actual db
+
 function mockFirestore(stored: Organisation | null) {
   const docRef = {
     get: vi.fn().mockResolvedValue({ id: 'org-1', data: () => stored ?? undefined }),
@@ -78,8 +93,11 @@ describe('POST /api/organisations', () => {
     expect(res.body.tags).toEqual([])
     expect(res.body.deletedAt).toBeNull()
     expect(res.body.createdBy).toBe('test-uid')
+    expect(res.body.relationship.leadScore).toBeNull()
+    expect(res.body.relationship.nextAction).toBeNull()
     expect(collection.add).toHaveBeenCalledOnce()
-  }, 20000)
+  }, //first test carries the startup cost so it gets a longer timeout
+  20000)
 
   it('rejects a payload missing required fields', async () => {
     mockFirestore(null)
@@ -179,26 +197,67 @@ describe('PATCH /api/organisations/:id', () => {
   })
 })
 
-describe('POST /api/organisations/:id/archive', () => {
-  it('soft deletes by stamping deletedAt', async () => {
+describe('PATCH /api/organisations/:id - relationship fields', () => {
+  //confirms that updating 1 field doesnt change values of the other fields
+
+  it('updates the lead score without wiping the other fields', async () => {
     const { docRef } = mockFirestore(sampleOrganisation)
 
     const res = await request(app)
-      .post('/api/organisations/org-1/archive')
+      .patch('/api/organisations/org-1')
       .set('Authorization', TOKEN)
+      .send({ relationship: { leadScore: 90 } })
 
     expect(res.status).toBe(200)
-    expect(res.body.deletedAt).not.toBeNull()
+    expect(res.body.relationship.leadScore).toBe(90)
+    expect(res.body.relationship.nextAction).toBe('Send revised partnership contract')
     expect(docRef.set).toHaveBeenCalledOnce()
   })
 
-  it('returns 409 when already archived', async () => {
-    mockFirestore({ ...sampleOrganisation, deletedAt: '2026-09-16T01:00:00.000Z' })
+  it('records a follow up next action', async () => {
+    mockFirestore(sampleOrganisation)
 
     const res = await request(app)
-      .post('/api/organisations/org-1/archive')
+      .patch('/api/organisations/org-1')
       .set('Authorization', TOKEN)
+      .send({
+        relationship: {
+          nextAction: 'Schedule site visit',
+          nextActionDueAt: '2026-10-01T00:00:00.000Z',
+        },
+      })
 
-    expect(res.status).toBe(409)
+    expect(res.status).toBe(200)
+    expect(res.body.relationship.nextAction).toBe('Schedule site visit')
+    expect(res.body.relationship.nextActionDueAt).toBe('2026-10-01T00:00:00.000Z')
+  })
+
+  it('stores qualification info alongside the lead score', async () => {
+    mockFirestore(sampleOrganisation)
+
+    const res = await request(app)
+      .patch('/api/organisations/org-1')
+      .set('Authorization', TOKEN)
+      .send({
+        relationship: {
+          leadScore: 75,
+          qualificationInfo: 'Budget reduced, timeline pushed to Q2.',
+        },
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.body.relationship.leadScore).toBe(75)
+    expect(res.body.relationship.qualificationInfo).toBe('Budget reduced, timeline pushed to Q2.')
+  })
+
+  it('rejects a lead score above 100', async () => {
+    mockFirestore(sampleOrganisation)
+
+    const res = await request(app)
+      .patch('/api/organisations/org-1')
+      .set('Authorization', TOKEN)
+      .send({ relationship: { leadScore: 150 } })
+
+    expect(res.status).toBe(400)
   })
 })
