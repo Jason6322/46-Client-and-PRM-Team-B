@@ -52,28 +52,37 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 **Path:** `/organisations/{organisationId}`
 **Access:** Team-shared — any authenticated team member can read and write. _(Pending confirmation — see "Open question" below.)_
 
-| Field                | Type                                               | Required | Description                                                       |
-| -------------------- | -------------------------------------------------- | -------- | ----------------------------------------------------------------- |
-| `name`               | `string`                                           | Yes      | Organisation name                                                 |
-| `type`               | `'Industry Partner' \| 'Client' \| 'Collaborator'` | Yes      | Relationship type                                                 |
-| `industry`           | `string \| null`                                   | Yes      | Industry / sector                                                 |
-| `country`            | `string`                                           | Yes      | Country (free text, e.g. "Melbourne, Australia")                  |
-| `website`            | `string \| null`                                   | Yes      | Website URL                                                       |
-| `relationshipOwner`  | `string`                                           | Yes      | Team member who owns the relationship                             |
-| `tags`               | `string[]`                                         | Yes      | Free-text tags; empty array when none                             |
-| `pipelineStage`      | `PipelineStage`                                    | Yes      | One of the 12 stages; defaults to `Prospect`                      |
-| `primaryContact`     | `OrganisationContact`                              | Yes      | Main contact — `name` required                                    |
-| `secondaryContact`   | `OrganisationContact \| null`                      | Yes      | Optional second contact                                           |
-| `notes`              | `string \| null`                                   | Yes      | Free-text notes                                                   |
-| `relationshipStatus` | `'Active' \| 'Prospect' \| null`                   | No       | Shown as `Stage · Status`; null until set. The BRD may add values |
-| `nextAction`         | `string \| null`                                   | No       | Next follow-up owed; absent on older docs → `null`                |
-| `nextActionDueAt`    | `Timestamp \| null`                                | No       | Follow-up due date, stored at 12:00 UTC on the day                |
-| `createdBy`          | `string`                                           | Yes      | UID of the creating user                                          |
-| `createdAt`          | `Timestamp`                                        | Yes      | When the document was created                                     |
-| `updatedAt`          | `Timestamp`                                        | Yes      | When the document was last updated                                |
-| `lastActivityAt`     | `Timestamp`                                        | Yes      | Drives the "Last Activity" column and list ordering               |
-| `deletedAt`          | `Timestamp \| null`                                | Yes      | Soft-delete marker; `null` when active                            |
-| `_schemaVersion`     | `1`                                                | Yes      | Schema version for lazy migration                                 |
+| Field                   | Type                                               | Required | Description                                                       |
+| ----------------------- | -------------------------------------------------- | -------- | ----------------------------------------------------------------- |
+| `name`                  | `string`                                           | Yes      | Organisation name                                                 |
+| `type`                  | `'Industry Partner' \| 'Client' \| 'Collaborator'` | Yes      | Relationship type                                                 |
+| `industry`              | `string \| null`                                   | Yes      | Industry / sector                                                 |
+| `country`               | `string`                                           | Yes      | Country (free text, e.g. "Melbourne, Australia")                  |
+| `website`               | `string \| null`                                   | Yes      | Website URL                                                       |
+| `relationshipOwner`     | `string`                                           | Yes      | Team member who owns the relationship                             |
+| `tags`                  | `string[]`                                         | Yes      | Free-text tags; empty array when none                             |
+| `pipelineStage`         | `PipelineStage`                                    | Yes      | One of the 12 stages; defaults to `Prospect`                      |
+| `primaryContact`        | `OrganisationContact`                              | Yes      | Main contact — `name` required                                    |
+| `secondaryContact`      | `OrganisationContact \| null`                      | Yes      | Optional second contact                                           |
+| `notes`                 | `string \| null`                                   | Yes      | Free-text notes                                                   |
+| `relationshipStatus`    | `'Active' \| 'Prospect' \| null`                   | No       | Shown as `Stage · Status`; null until set. The BRD may add values |
+| `nextAction`            | `string \| null`                                   | No       | Next follow-up owed; absent on older docs → `null`                |
+| `businessResearchNotes` | `string \| null`                                   | No       | Relationships screen — Research                                   |
+| `qualificationInfo`     | `string \| null`                                   | No       | Relationships screen — Research                                   |
+| `leadScore`             | `number \| null`                                   | No       | 0–100, entered by hand; shown as a progress bar                   |
+| `researchStatus`        | `string \| null`                                   | No       | Relationships screen — Research                                   |
+| `businessBrief`         | `string \| null`                                   | No       | Link or reference to the brief                                    |
+| `outreachStatus`        | `string \| null`                                   | No       | Relationships screen — Outreach & Follow-up                       |
+| `communicationRecord`   | `string \| null`                                   | No       | Relationships screen — Outreach & Follow-up                       |
+| `followUpStatus`        | `string \| null`                                   | No       | Relationships screen — Outreach & Follow-up                       |
+| `relationshipNotes`     | `string \| null`                                   | No       | Strategic notes; distinct from `notes`, which is about contacts   |
+| `nextActionDueAt`       | `Timestamp \| null`                                | No       | Follow-up due date, stored at 12:00 UTC on the day                |
+| `createdBy`             | `string`                                           | Yes      | UID of the creating user                                          |
+| `createdAt`             | `Timestamp`                                        | Yes      | When the document was created                                     |
+| `updatedAt`             | `Timestamp`                                        | Yes      | When the document was last updated                                |
+| `lastActivityAt`        | `Timestamp`                                        | Yes      | Drives the "Last Activity" column and list ordering               |
+| `deletedAt`             | `Timestamp \| null`                                | Yes      | Soft-delete marker; `null` when active                            |
+| `_schemaVersion`        | `1`                                                | Yes      | Schema version for lazy migration                                 |
 
 `OrganisationContact` is `{ name: string; role: string \| null; email: string \| null; phone: string \| null }`.
 
