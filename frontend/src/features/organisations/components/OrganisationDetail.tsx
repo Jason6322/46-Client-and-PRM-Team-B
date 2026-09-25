@@ -34,10 +34,15 @@ export function OrganisationDetail({ organisation }: { organisation: Organisatio
   return (
     <div className="space-y-6">
       <div className="border-b border-zinc-200">
+        {/*
+          Wraps rather than scrolls: the five labels are wider than a phone, and
+          a scrolling row leaves a visible scrollbar on desktop even when there
+          is nothing to scroll.
+        */}
         <div
           role="tablist"
           aria-label="Organisation sections"
-          className="flex gap-6 overflow-x-auto"
+          className="flex flex-wrap gap-x-6 gap-y-1"
         >
           {TABS.map((tab) => {
             const active = tab === activeTab
