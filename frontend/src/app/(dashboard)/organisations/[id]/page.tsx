@@ -2,7 +2,10 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { getOrganisation } from '@/features/organisations/actions/organisations.actions'
+import {
+  getOrganisation,
+  listOrganisationActivities,
+} from '@/features/organisations/actions/organisations.actions'
 import { ArchiveOrganisationButton } from '@/features/organisations/components/ArchiveOrganisationButton'
 import { OrganisationDetail } from '@/features/organisations/components/OrganisationDetail'
 
@@ -21,6 +24,7 @@ export default async function OrganisationDetailPage({
   if (!result.success || !result.data) notFound()
 
   const organisation = result.data
+  const activities = await listOrganisationActivities(id)
 
   return (
     <div className="space-y-6">
@@ -38,7 +42,7 @@ export default async function OrganisationDetailPage({
           </>
         }
       />
-      <OrganisationDetail organisation={organisation} />
+      <OrganisationDetail organisation={organisation} activities={activities.data ?? []} />
     </div>
   )
 }

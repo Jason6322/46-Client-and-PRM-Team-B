@@ -20,7 +20,7 @@ import {
 import { dateOnlyToDate } from '@/features/organisations/followUp'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
-import type { OrganisationListItem } from '@/features/organisations/types'
+import type { OrganisationActivity, OrganisationListItem } from '@/features/organisations/types'
 
 /**
  * Organisation Server Actions — create, view, edit and archive.
@@ -31,6 +31,7 @@ import type { OrganisationListItem } from '@/features/organisations/types'
  */
 
 const COLLECTION = 'organisations'
+const ACTIVITIES = 'activities'
 
 function serialise(id: string, data: FirebaseFirestore.DocumentData): OrganisationListItem {
   const toMillis = (value: unknown) => (value instanceof Timestamp ? value.toMillis() : Date.now())
@@ -60,6 +61,65 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Organisati
     nextAction: text(data.nextAction),
     nextActionDueAt:
       data.nextActionDueAt instanceof Timestamp ? data.nextActionDueAt.toMillis() : null,
+  }
+}
+
+/**
+ * Record a stage change in `organisations/{id}/activities`.
+ *
+ * Written as part of the same request as the stage change itself. A failure
+ * here must not fail the move, so the caller catches it — losing a history
+ * entry is much less bad than refusing a stage change.
+ */
+async function recordStageChange(
+  organisationId: string,
+  fromStage: PipelineStage | null,
+  toStage: PipelineStage,
+  actorUid: string,
+  actorLabel: string | null
+) {
+  await adminDb.collection(COLLECTION).doc(organisationId).collection(ACTIVITIES).add({
+    type: 'stage_change',
+    fromStage,
+    toStage,
+    actorUid,
+    actorLabel,
+    createdAt: FieldValue.serverTimestamp(),
+  })
+}
+
+/** Stage changes and, in time, calls and meetings — newest first. */
+export async function listOrganisationActivities(
+  organisationId: string
+): Promise<ActionResult<OrganisationActivity[]>> {
+  await requireAuth()
+
+  try {
+    const snapshot = await adminDb
+      .collection(COLLECTION)
+      .doc(organisationId)
+      .collection(ACTIVITIES)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get()
+
+    return {
+      success: true,
+      data: snapshot.docs.map((doc) => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          type: 'stage_change',
+          fromStage: data.fromStage ?? null,
+          toStage: data.toStage,
+          actorUid: data.actorUid ?? '',
+          actorLabel: typeof data.actorLabel === 'string' ? data.actorLabel : null,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
+        }
+      }),
+    }
+  } catch {
+    return { success: false, error: 'Failed to load activity' }
   }
 }
 
@@ -209,7 +269,7 @@ export async function updateOrganisation(id: string, input: unknown): Promise<Ac
  * move backwards, so this is deliberately not a one-way funnel.
  */
 export async function changePipelineStage(id: string, stage: unknown): Promise<ActionResult> {
-  await requireAuth()
+  const session = await requireAuth()
 
   const parsed = pipelineStageSchema.safeParse(stage)
   if (!parsed.success) {
@@ -217,11 +277,29 @@ export async function changePipelineStage(id: string, stage: unknown): Promise<A
   }
 
   try {
-    await adminDb.collection(COLLECTION).doc(id).update({
+    const ref = adminDb.collection(COLLECTION).doc(id)
+    // Read the current stage first so the history entry records what it moved
+    // from; the update itself would otherwise overwrite it without trace.
+    const before = await ref.get()
+    const fromStage = (before.data()?.pipelineStage as PipelineStage | undefined) ?? null
+
+    await ref.update({
       pipelineStage: parsed.data,
       updatedAt: FieldValue.serverTimestamp(),
       lastActivityAt: FieldValue.serverTimestamp(),
     })
+
+    if (fromStage !== parsed.data) {
+      await recordStageChange(
+        id,
+        fromStage,
+        parsed.data,
+        session.uid,
+        session.name ?? session.email ?? null
+      ).catch(() => {
+        // History is best effort; the move itself has already succeeded.
+      })
+    }
 
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)
@@ -277,7 +355,7 @@ export async function saveRelationshipManagement(
   input: unknown,
   advanceStage = false
 ): Promise<ActionResult<{ pipelineStage: PipelineStage }>> {
-  await requireAuth()
+  const session = await requireAuth()
 
   const parsed = relationshipManagementSchema.safeParse(input)
   if (!parsed.success) {
@@ -302,6 +380,18 @@ export async function saveRelationshipManagement(
       updatedAt: FieldValue.serverTimestamp(),
       lastActivityAt: FieldValue.serverTimestamp(),
     })
+
+    if (moved !== null) {
+      await recordStageChange(
+        id,
+        current,
+        moved,
+        session.uid,
+        session.name ?? session.email ?? null
+      ).catch(() => {
+        // History is best effort; the save itself has already succeeded.
+      })
+    }
 
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)

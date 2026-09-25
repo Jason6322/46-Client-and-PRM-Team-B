@@ -8,8 +8,9 @@ import { ContactsCard } from './ContactsCard'
 import { OrganisationDetailsCard } from './OrganisationDetailsCard'
 import { NextActionEditor } from './NextActionEditor'
 import { PipelineStageSelect } from './PipelineStageSelect'
+import { PipelineTab } from './PipelineTab'
 import { RelationshipManagementForm } from './RelationshipManagementForm'
-import type { OrganisationListItem } from '@/features/organisations/types'
+import type { OrganisationActivity, OrganisationListItem } from '@/features/organisations/types'
 
 /**
  * Organisation detail — screen 4 of the approved prototype.
@@ -28,7 +29,13 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]
 
-export function OrganisationDetail({ organisation }: { organisation: OrganisationListItem }) {
+export function OrganisationDetail({
+  organisation,
+  activities,
+}: {
+  organisation: OrganisationListItem
+  activities: OrganisationActivity[]
+}) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
 
   return (
@@ -142,6 +149,8 @@ export function OrganisationDetail({ organisation }: { organisation: Organisatio
         </div>
       ) : activeTab === 'Relationship Management' ? (
         <RelationshipManagementForm organisation={organisation} />
+      ) : activeTab === 'Pipeline' ? (
+        <PipelineTab organisation={organisation} activities={activities} />
       ) : (
         <Card>
           <EmptyState title={`${activeTab} is not built yet`} />
