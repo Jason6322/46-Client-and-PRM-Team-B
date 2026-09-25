@@ -14,6 +14,7 @@ interface OrganisationDetailsCardProps {
   country?: string
   website?: string
   relationshipOwner?: string
+  relationshipStatus?: string
   tags?: string[]
 }
 
@@ -35,6 +36,7 @@ export function OrganisationDetailsCard({
   country,
   website,
   relationshipOwner,
+  relationshipStatus,
   tags,
 }: OrganisationDetailsCardProps) {
   return (
@@ -44,6 +46,7 @@ export function OrganisationDetailsCard({
         <ReadOnlyField label="Country" value={country} />
         <ReadOnlyField label="Website" value={website} />
         <ReadOnlyField label="Relationship Owner" value={relationshipOwner} />
+        <ReadOnlyField label="Relationship Status" value={relationshipStatus} />
       </div>
 
       <div className="mt-5">

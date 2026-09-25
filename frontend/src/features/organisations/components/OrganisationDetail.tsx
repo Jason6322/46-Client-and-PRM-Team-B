@@ -69,6 +69,7 @@ export function OrganisationDetail({ organisation }: { organisation: Organisatio
               country={organisation.country}
               website={organisation.website ?? undefined}
               relationshipOwner={organisation.relationshipOwner}
+              relationshipStatus={organisation.relationshipStatus ?? undefined}
               tags={organisation.tags}
             />
             <ContactsCard
@@ -108,9 +109,9 @@ export function OrganisationDetail({ organisation }: { organisation: Organisatio
                   <dd className="inline">{formatRelativeTime(organisation.lastActivityAt)}</dd>
                 </div>
                 <div>
-                  <dt className="inline">Org status: </dt>
-                  <dd className="inline">
-                    {organisation.deletedAt === null ? 'Active' : 'Archived'}
+                  <dt className="inline">Relationship status: </dt>
+                  <dd className={cn('inline', !organisation.relationshipStatus && 'text-zinc-400')}>
+                    {organisation.relationshipStatus ?? 'Not set'}
                   </dd>
                 </div>
               </dl>

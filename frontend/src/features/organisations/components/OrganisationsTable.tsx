@@ -35,6 +35,7 @@ function matches(organisation: OrganisationListItem, term: string) {
     organisation.country,
     organisation.relationshipOwner,
     organisation.pipelineStage,
+    organisation.relationshipStatus ?? '',
     organisation.primaryContact.name,
     organisation.primaryContact.role ?? '',
     ...organisation.tags,
@@ -136,8 +137,11 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
                     <td className="px-6 py-4 text-sm text-zinc-600">
                       {organisation.relationshipOwner}
                     </td>
-                    <td className="text-brand-600 px-6 py-4 text-sm">
-                      {organisation.pipelineStage}
+                    <td className="px-6 py-4 text-sm">
+                      <span className="text-brand-600">{organisation.pipelineStage}</span>
+                      {organisation.relationshipStatus && (
+                        <span className="text-zinc-500"> · {organisation.relationshipStatus}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-zinc-600">
                       {organisation.tags.length > 0 ? organisation.tags.join(', ') : '—'}

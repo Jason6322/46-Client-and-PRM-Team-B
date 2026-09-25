@@ -3,6 +3,7 @@ import {
   DEFAULT_PIPELINE_STAGE,
   ORGANISATION_TYPES,
   PIPELINE_STAGES,
+  RELATIONSHIP_STATUSES,
 } from '@/features/organisations/constants'
 import { isDateOnly, millisToDateOnly } from '@/features/organisations/followUp'
 
@@ -54,6 +55,11 @@ export const createOrganisationSchema = z.object({
   relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
   tags: z.array(z.string().trim().min(1)).max(20).default([]),
   pipelineStage: z.enum(PIPELINE_STAGES).default(DEFAULT_PIPELINE_STAGE),
+  relationshipStatus: z
+    .enum(RELATIONSHIP_STATUSES, { message: 'Select a relationship status' })
+    .nullable()
+    .or(z.literal('').transform(() => null))
+    .default(null),
   primaryContact: organisationContactSchema,
   secondaryContact: organisationContactSchema.nullable().default(null),
   notes: optionalText,
@@ -107,6 +113,7 @@ export const organisationFormSchema = z
     country: z.string().trim().min(1, 'Country is required').max(100),
     website: z.union([z.string().trim().url('Enter a valid URL'), z.literal('')]),
     relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
+    relationshipStatus: z.union([z.enum(RELATIONSHIP_STATUSES), z.literal('')]),
     tags: z.string(),
     notes: z.string(),
     nextAction: z.string().trim().max(300),
@@ -139,6 +146,7 @@ export function toCreateOrganisationInput(values: OrganisationFormValues) {
     country: values.country.trim(),
     website: emptyToNull(values.website),
     relationshipOwner: values.relationshipOwner.trim(),
+    relationshipStatus: values.relationshipStatus === '' ? null : values.relationshipStatus,
     tags: values.tags
       .split(',')
       .map((tag) => tag.trim())
@@ -159,6 +167,7 @@ export function toOrganisationFormValues(organisation: {
   country: string
   website: string | null
   relationshipOwner: string
+  relationshipStatus: OrganisationFormValues['relationshipStatus'] | null
   tags: string[]
   notes: string | null
   nextAction: string | null
@@ -190,6 +199,7 @@ export function toOrganisationFormValues(organisation: {
     country: organisation.country,
     website: organisation.website ?? '',
     relationshipOwner: organisation.relationshipOwner,
+    relationshipStatus: organisation.relationshipStatus ?? '',
     tags: organisation.tags.join(', '),
     notes: organisation.notes ?? '',
     nextAction: organisation.nextAction ?? '',

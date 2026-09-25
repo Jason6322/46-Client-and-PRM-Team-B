@@ -10,7 +10,7 @@ import {
   pipelineStageSchema,
   updateOrganisationSchema,
 } from '@/lib/validations/organisation'
-import { DEFAULT_PIPELINE_STAGE } from '@/features/organisations/constants'
+import { DEFAULT_PIPELINE_STAGE, RELATIONSHIP_STATUSES } from '@/features/organisations/constants'
 import { dateOnlyToDate } from '@/features/organisations/followUp'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
@@ -36,7 +36,10 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Organisati
     updatedAt: toMillis(data.updatedAt),
     lastActivityAt: toMillis(data.lastActivityAt),
     deletedAt: data.deletedAt instanceof Timestamp ? data.deletedAt.toMillis() : null,
-    // Documents created before follow-ups existed have neither field.
+    // Documents created before these fields existed do not carry them.
+    relationshipStatus: RELATIONSHIP_STATUSES.includes(data.relationshipStatus)
+      ? data.relationshipStatus
+      : null,
     nextAction: typeof data.nextAction === 'string' ? data.nextAction : null,
     nextActionDueAt:
       data.nextActionDueAt instanceof Timestamp ? data.nextActionDueAt.toMillis() : null,

@@ -1,5 +1,9 @@
 import type { Timestamp } from 'firebase/firestore'
-import type { OrganisationType, PipelineStage } from '@/features/organisations/constants'
+import type {
+  OrganisationType,
+  PipelineStage,
+  RelationshipStatus,
+} from '@/features/organisations/constants'
 
 /**
  * Firestore collection type definitions.
@@ -50,6 +54,11 @@ export interface Organisation {
   relationshipOwner: string
   tags: string[]
   pipelineStage: PipelineStage
+  /**
+   * Relationship status, shown beside the stage as "Negotiation · Active".
+   * Null until someone sets it; older documents do not carry the field.
+   */
+  relationshipStatus: RelationshipStatus | null
   primaryContact: OrganisationContact
   secondaryContact: OrganisationContact | null
   notes: string | null

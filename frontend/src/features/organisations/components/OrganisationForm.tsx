@@ -7,7 +7,7 @@ import { useForm, type FieldError, type UseFormRegisterReturn } from 'react-hook
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Card } from '@/components/shared/Card'
-import { ORGANISATION_TYPES } from '@/features/organisations/constants'
+import { ORGANISATION_TYPES, RELATIONSHIP_STATUSES } from '@/features/organisations/constants'
 import {
   createOrganisation,
   updateOrganisation,
@@ -92,6 +92,7 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
           country: '',
           website: '',
           relationshipOwner: '',
+          relationshipStatus: '',
           tags: '',
           notes: '',
           nextAction: '',
@@ -197,6 +198,28 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
             registration={register('relationshipOwner')}
             error={errors.relationshipOwner}
           />
+        </div>
+
+        <div className="mt-5 sm:w-1/2">
+          <label htmlFor="relationshipStatus" className={labelClass}>
+            Relationship Status
+          </label>
+          <select
+            id="relationshipStatus"
+            aria-invalid={errors.relationshipStatus ? true : undefined}
+            className={cn(inputClass, errors.relationshipStatus && 'border-red-400')}
+            {...register('relationshipStatus')}
+          >
+            <option value="">Not set</option>
+            {RELATIONSHIP_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+          {errors.relationshipStatus && (
+            <p className="mt-1 text-xs text-red-600">{errors.relationshipStatus.message}</p>
+          )}
         </div>
 
         <div className="mt-5">

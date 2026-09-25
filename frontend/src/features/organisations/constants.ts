@@ -10,6 +10,15 @@ export const ORGANISATION_TYPES = ['Industry Partner', 'Client', 'Collaborator']
 
 export type OrganisationType = (typeof ORGANISATION_TYPES)[number]
 
+/**
+ * Relationship status — the headline state, shown beside the pipeline stage
+ * as "Negotiation · Active". Only these two appear in the approved wireframe.
+ * The BRD has not settled the full list, so expect this to grow.
+ */
+export const RELATIONSHIP_STATUSES = ['Active', 'Prospect'] as const
+
+export type RelationshipStatus = (typeof RELATIONSHIP_STATUSES)[number]
+
 export const PIPELINE_STAGES = [
   'Prospect',
   'Research',
