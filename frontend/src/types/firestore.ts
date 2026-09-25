@@ -62,6 +62,24 @@ export interface Organisation {
   primaryContact: OrganisationContact
   secondaryContact: OrganisationContact | null
   notes: string | null
+  /**
+   * Relationship management — the Research and Outreach & Follow-up cards on
+   * the Relationships screen. All optional; older documents carry none of them.
+   *
+   * "Recommended next action" on that screen is `nextAction`, and "Assigned
+   * team member" is `relationshipOwner`; neither is duplicated here.
+   */
+  businessResearchNotes: string | null
+  qualificationInfo: string | null
+  /** 0–100, entered by hand. Shown as a progress bar. */
+  leadScore: number | null
+  researchStatus: string | null
+  businessBrief: string | null
+  outreachStatus: string | null
+  communicationRecord: string | null
+  followUpStatus: string | null
+  /** Strategic notes about the relationship, distinct from the contact notes. */
+  relationshipNotes: string | null
   /** The next follow-up owed to this organisation, e.g. "Send revised contract". */
   nextAction: string | null
   /** When the follow-up is due. Stored at 12:00 UTC on the due day. */

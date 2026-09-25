@@ -83,6 +83,72 @@ export const nextActionSchema = z
     path: ['nextAction'],
   })
 
+/**
+ * Relationship management — the Relationships screen.
+ *
+ * Every field is optional: the screen is filled in gradually as an
+ * organisation is researched, contacted and qualified.
+ */
+export const relationshipManagementSchema = z.object({
+  businessResearchNotes: optionalText,
+  qualificationInfo: optionalText,
+  leadScore: z
+    .number()
+    .int('Lead score must be a whole number')
+    .min(0, 'Lead score must be between 0 and 100')
+    .max(100, 'Lead score must be between 0 and 100')
+    .nullable(),
+  researchStatus: optionalText,
+  businessBrief: optionalText,
+  outreachStatus: optionalText,
+  communicationRecord: optionalText,
+  followUpStatus: optionalText,
+  relationshipNotes: optionalText,
+  // Shared with the profile rather than duplicated.
+  relationshipOwner: z.string().trim().min(1, 'Assigned team member is required').max(100),
+  nextAction: optionalText,
+})
+
+/** Form-shaped counterpart — inputs produce strings, including the lead score. */
+export const relationshipManagementFormSchema = z.object({
+  businessResearchNotes: z.string().trim().max(2000),
+  qualificationInfo: z.string().trim().max(2000),
+  leadScore: z.union([
+    z.literal(''),
+    z
+      .string()
+      .regex(/^\d{1,3}$/, 'Enter a number from 0 to 100')
+      .refine((value) => Number(value) <= 100, 'Enter a number from 0 to 100'),
+  ]),
+  researchStatus: z.string().trim().max(100),
+  businessBrief: z.string().trim().max(500),
+  outreachStatus: z.string().trim().max(200),
+  communicationRecord: z.string().trim().max(2000),
+  followUpStatus: z.string().trim().max(200),
+  relationshipNotes: z.string().trim().max(2000),
+  relationshipOwner: z.string().trim().min(1, 'Assigned team member is required').max(100),
+  nextAction: z.string().trim().max(300),
+})
+
+export type RelationshipManagementFormValues = z.infer<typeof relationshipManagementFormSchema>
+
+/** Convert the relationship form's values into the Server Action payload. */
+export function toRelationshipManagementInput(values: RelationshipManagementFormValues) {
+  return {
+    businessResearchNotes: emptyToNull(values.businessResearchNotes),
+    qualificationInfo: emptyToNull(values.qualificationInfo),
+    leadScore: values.leadScore === '' ? null : Number(values.leadScore),
+    researchStatus: emptyToNull(values.researchStatus),
+    businessBrief: emptyToNull(values.businessBrief),
+    outreachStatus: emptyToNull(values.outreachStatus),
+    communicationRecord: emptyToNull(values.communicationRecord),
+    followUpStatus: emptyToNull(values.followUpStatus),
+    relationshipNotes: emptyToNull(values.relationshipNotes),
+    relationshipOwner: values.relationshipOwner.trim(),
+    nextAction: emptyToNull(values.nextAction),
+  }
+}
+
 /** Standalone stage validation, for the stage control on the detail screen. */
 export const pipelineStageSchema = z.enum(PIPELINE_STAGES, { message: 'Unknown pipeline stage' })
 

@@ -8,9 +8,15 @@ import {
   createOrganisationSchema,
   nextActionSchema,
   pipelineStageSchema,
+  relationshipManagementSchema,
   updateOrganisationSchema,
 } from '@/lib/validations/organisation'
-import { DEFAULT_PIPELINE_STAGE, RELATIONSHIP_STATUSES } from '@/features/organisations/constants'
+import {
+  DEFAULT_PIPELINE_STAGE,
+  RELATIONSHIP_STATUSES,
+  nextPipelineStage,
+  type PipelineStage,
+} from '@/features/organisations/constants'
 import { dateOnlyToDate } from '@/features/organisations/followUp'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
@@ -28,6 +34,8 @@ const COLLECTION = 'organisations'
 
 function serialise(id: string, data: FirebaseFirestore.DocumentData): OrganisationListItem {
   const toMillis = (value: unknown) => (value instanceof Timestamp ? value.toMillis() : Date.now())
+  /** Optional string fields are absent on documents written before they existed. */
+  const text = (value: unknown) => (typeof value === 'string' ? value : null)
 
   return {
     ...(data as Omit<Organisation, 'id'>),
@@ -40,7 +48,16 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Organisati
     relationshipStatus: RELATIONSHIP_STATUSES.includes(data.relationshipStatus)
       ? data.relationshipStatus
       : null,
-    nextAction: typeof data.nextAction === 'string' ? data.nextAction : null,
+    businessResearchNotes: text(data.businessResearchNotes),
+    qualificationInfo: text(data.qualificationInfo),
+    leadScore: typeof data.leadScore === 'number' ? data.leadScore : null,
+    researchStatus: text(data.researchStatus),
+    businessBrief: text(data.businessBrief),
+    outreachStatus: text(data.outreachStatus),
+    communicationRecord: text(data.communicationRecord),
+    followUpStatus: text(data.followUpStatus),
+    relationshipNotes: text(data.relationshipNotes),
+    nextAction: text(data.nextAction),
     nextActionDueAt:
       data.nextActionDueAt instanceof Timestamp ? data.nextActionDueAt.toMillis() : null,
   }
@@ -245,6 +262,54 @@ export async function setNextAction(id: string, input: unknown): Promise<ActionR
     return { success: true }
   } catch {
     return { success: false, error: 'Failed to save follow-up' }
+  }
+}
+
+/**
+ * Save the Relationships screen.
+ *
+ * With `advanceStage`, also moves the organisation to the next pipeline stage —
+ * the "Save & Move to Next Stage" button. At the last stage there is nowhere to
+ * advance to, so only the fields are saved.
+ */
+export async function saveRelationshipManagement(
+  id: string,
+  input: unknown,
+  advanceStage = false
+): Promise<ActionResult<{ pipelineStage: PipelineStage }>> {
+  await requireAuth()
+
+  const parsed = relationshipManagementSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid details' }
+  }
+
+  try {
+    const ref = adminDb.collection(COLLECTION).doc(id)
+    const snapshot = await ref.get()
+    const data = snapshot.data()
+
+    if (!snapshot.exists || !data || data.deletedAt !== null) {
+      return { success: false, error: 'Organisation not found' }
+    }
+
+    const current = serialise(snapshot.id, data).pipelineStage
+    const moved = advanceStage ? nextPipelineStage(current) : null
+
+    await ref.update({
+      ...parsed.data,
+      ...(moved !== null && { pipelineStage: moved }),
+      updatedAt: FieldValue.serverTimestamp(),
+      lastActivityAt: FieldValue.serverTimestamp(),
+    })
+
+    revalidatePath('/organisations')
+    revalidatePath(`/organisations/${id}`)
+    revalidatePath('/relationships')
+    revalidatePath(`/relationships/${id}`)
+    return { success: true, data: { pipelineStage: moved ?? current } }
+  } catch {
+    return { success: false, error: 'Failed to save relationship details' }
   }
 }
 

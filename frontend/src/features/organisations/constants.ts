@@ -36,5 +36,14 @@ export const PIPELINE_STAGES = [
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number]
 
+/**
+ * The stage after this one, or null at the end of the list.
+ * Backs "Save & Move to Next Stage" on the Relationships screen.
+ */
+export function nextPipelineStage(stage: PipelineStage): PipelineStage | null {
+  const index = PIPELINE_STAGES.indexOf(stage)
+  return PIPELINE_STAGES[index + 1] ?? null
+}
+
 /** Stage assigned to every newly created organisation. */
 export const DEFAULT_PIPELINE_STAGE: PipelineStage = 'Prospect'
