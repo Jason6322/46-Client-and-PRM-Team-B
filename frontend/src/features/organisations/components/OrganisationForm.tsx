@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useForm, type FieldError, type UseFormRegisterReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
+import { AutoGrowTextarea } from '@/components/shared/AutoGrowTextarea'
 import { Card } from '@/components/shared/Card'
 import { ORGANISATION_TYPES, RELATIONSHIP_STATUSES } from '@/features/organisations/constants'
 import {
@@ -350,7 +351,12 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
         <label htmlFor="notes" className="sr-only">
           Notes
         </label>
-        <textarea id="notes" rows={4} className={inputClass} {...register('notes')} />
+        <AutoGrowTextarea
+          id="notes"
+          rows={4}
+          className={inputClass}
+          registration={register('notes')}
+        />
       </Card>
 
       <div className="flex items-center gap-3">
