@@ -4,12 +4,12 @@
 
 ## Stack
 
-| | |
-|-|-|
-| **Frontend** | Next.js 16 (App Router) · React 19 · TypeScript 5 · Tailwind v4 |
-| **Backend** | Next.js Server Actions + Route Handlers on Vercel (Firebase Admin SDK) |
-| **Database / Auth** | Firestore · Firebase Authentication |
-| **Testing** | Vitest · Testing Library |
+|                     |                                                                        |
+| ------------------- | ---------------------------------------------------------------------- |
+| **Frontend**        | Next.js 16 (App Router) · React 19 · TypeScript 5 · Tailwind v4        |
+| **Backend**         | Next.js Server Actions + Route Handlers on Vercel (Firebase Admin SDK) |
+| **Database / Auth** | Firestore · Firebase Authentication                                    |
+| **Testing**         | Vitest · Testing Library                                               |
 
 ## Getting Started
 
@@ -17,12 +17,12 @@ Everything runs locally against the team's real (free-tier) Firebase project —
 
 ### Prerequisites
 
-| Requirement | Notes |
-|-------------|-------|
-| **Node.js 22+** | `node --version` |
-| **pnpm 10+** | Never use `npm` or `yarn` in this repo — see below |
+| Requirement                 | Notes                                                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Node.js 22+**             | `node --version`                                                                                     |
+| **pnpm 10+**                | Never use `npm` or `yarn` in this repo — see below                                                   |
 | **Firebase project access** | Ask the team lead to add your Google account to the team Firebase project (Auth + Firestore enabled) |
-| **Git** | Configured with your GitHub account |
+| **Git**                     | Configured with your GitHub account                                                                  |
 
 Installing pnpm — either works:
 
@@ -51,8 +51,8 @@ The root **`.env` is the single source of truth**. `pnpm run env:sync` generates
 
 Values come from **Firebase Console → Project settings**:
 
-- `NEXT_PUBLIC_FIREBASE_*` — from *Your apps → firebaseConfig*. Safe for the browser.
-- `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` — from *Service accounts → Generate new private key*, base64-encoded. **Server-only secret** — never prefix it with `NEXT_PUBLIC_`.
+- `NEXT_PUBLIC_FIREBASE_*` — from _Your apps → firebaseConfig_. Safe for the browser.
+- `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` — from _Service accounts → Generate new private key_, base64-encoded. **Server-only secret** — never prefix it with `NEXT_PUBLIC_`.
 
 `.firebaserc` must be set to the same project ID as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`. Full reference: [docs/ENV-VARS.md](docs/ENV-VARS.md).
 
@@ -64,16 +64,42 @@ Ask the team for the `NEXT_PUBLIC_FIREBASE_*` values — they're safe to share, 
 
 ### Commands
 
-| Command | What it does |
-|---------|--------------|
-| `pnpm run dev` | Frontend dev server on :3000 |
-| `pnpm run build` | Production build (frontend + backend) |
-| `pnpm run test` | Backend unit tests (mocked Firebase Admin) |
-| `pnpm run test:component` | Frontend unit tests |
-| `pnpm run test:all` | Both suites |
-| `pnpm run lint` | ESLint across all packages |
-| `pnpm run typecheck` | TypeScript check across all packages |
-| `pnpm run validate` | Check for unreplaced template placeholders |
+| Command                   | What it does                               |
+| ------------------------- | ------------------------------------------ |
+| `pnpm run dev`            | Frontend dev server on :3000               |
+| `pnpm run build`          | Production build (frontend + backend)      |
+| `pnpm run test`           | Backend unit tests (mocked Firebase Admin) |
+| `pnpm run test:component` | Frontend unit tests                        |
+| `pnpm run test:all`       | Both suites                                |
+| `pnpm run lint`           | ESLint across all packages                 |
+| `pnpm run typecheck`      | TypeScript check across all packages       |
+| `pnpm run validate`       | Check for unreplaced template placeholders |
+
+### Running the tests
+
+The app's tests use **Vitest** and live in `frontend/tests/unit/`, mirroring `frontend/src/`. They never call the real Firebase project — `frontend/tests/setup.ts` mocks the Firebase client and Admin SDKs — so they need no `.env` and are safe to run anytime.
+
+```bash
+pnpm install                                   # once, if you haven't already
+
+pnpm run test:component                        # run the frontend tests once
+pnpm --filter frontend test:watch              # re-run on every save while you work
+pnpm --filter frontend test:coverage           # with a coverage report (frontend/coverage/index.html)
+pnpm --filter frontend test tests/unit/lib     # only the tests under one folder or file
+pnpm run test:all                              # frontend + the legacy backend suite
+```
+
+A passing run ends with a summary like `Test Files 6 passed` and `Tests 19 passed`. A failure names the file and test, and shows what was expected against what was received.
+
+`pnpm run test` runs the tests for the old Express `backend/` only. That backend is no longer used — the app runs entirely on Next.js — but its tests still run in CI until it is removed.
+
+**Before pushing**, run the same checks as CI:
+
+```bash
+pnpm run lint && pnpm run typecheck && pnpm run test:all
+```
+
+New tests go in `frontend/tests/unit/`, in the folder matching the source file — for example, tests for `src/lib/utils.ts` are in `tests/unit/lib/utils.test.ts`.
 
 ### Contributing workflow
 

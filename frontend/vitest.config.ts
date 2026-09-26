@@ -27,6 +27,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      // Only the app's own source. Without this, coverage walks the whole
+      // package and fails on Next.js build output in .next/.
+      include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/components/ui/**', // shadcn components — not hand-authored
         '**/*.d.ts',
