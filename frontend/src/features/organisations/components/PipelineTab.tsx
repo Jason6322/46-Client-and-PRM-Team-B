@@ -25,7 +25,10 @@ export function PipelineTab({
   activities: OrganisationActivity[]
 }) {
   const currentIndex = PIPELINE_STAGES.indexOf(organisation.pipelineStage)
-  const lastChange = activities.find((activity) => activity.type === 'stage_change')
+  // Logged meetings, calls and notes share the activities feed; only stage
+  // changes belong in this tab.
+  const stageChanges = activities.filter((activity) => activity.type === 'stage_change')
+  const lastChange = stageChanges[0]
   // Before any stage change is recorded, the organisation has been at its
   // current stage since it was created.
   const inStageSince = lastChange?.createdAt ?? organisation.createdAt
@@ -82,14 +85,14 @@ export function PipelineTab({
       </Card>
 
       <Card title="Stage history">
-        {activities.length === 0 ? (
+        {stageChanges.length === 0 ? (
           <EmptyState
             title="No stage changes yet"
             description="Moving this organisation between stages will be recorded here."
           />
         ) : (
           <ol className="space-y-4">
-            {activities.map((activity) => (
+            {stageChanges.map((activity) => (
               <li key={activity.id} className="border-l-2 border-zinc-100 pl-4">
                 <p className="text-sm text-zinc-900">
                   {activity.fromStage ? (

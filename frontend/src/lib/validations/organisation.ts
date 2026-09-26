@@ -30,6 +30,19 @@ const dueDate = z
   .nullable()
   .or(z.literal('').transform(() => null))
 
+/**
+ * A link that is safe to render as an anchor.
+ *
+ * z.string().url() accepts javascript: and data: URLs, which become an XSS
+ * vector the moment they are rendered as a clickable link, so the protocol is
+ * checked explicitly.
+ */
+const webUrl = z
+  .string()
+  .trim()
+  .url('Enter a valid link')
+  .refine((value) => /^https?:\/\//i.test(value), 'Links must start with http:// or https://')
+
 export const organisationContactSchema = z.object({
   name: z.string().trim().min(1, 'Contact name is required'),
   role: optionalText,
@@ -47,12 +60,7 @@ export const createOrganisationSchema = z.object({
   type: z.enum(ORGANISATION_TYPES),
   industry: optionalText,
   country: z.string().trim().min(1, 'Country is required').max(100),
-  website: z
-    .string()
-    .trim()
-    .url('Enter a valid URL')
-    .nullable()
-    .or(z.literal('').transform(() => null)),
+  website: webUrl.nullable().or(z.literal('').transform(() => null)),
   relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
   tags: z.array(z.string().trim().min(1)).max(20).default([]),
   pipelineStage: z.enum(PIPELINE_STAGES).default(DEFAULT_PIPELINE_STAGE),
@@ -157,19 +165,6 @@ export function toRelationshipManagementInput(values: RelationshipManagementForm
  * it was recorded — people log a meeting the next morning. It comes from a
  * datetime-local input, so it has no timezone and is read in the viewer's own.
  */
-/**
- * A link that is safe to render as an anchor.
- *
- * z.string().url() accepts javascript: and data: URLs, which become an XSS
- * vector the moment they are rendered as a clickable link, so the protocol is
- * checked explicitly.
- */
-const webUrl = z
-  .string()
-  .trim()
-  .url('Enter a valid link')
-  .refine((value) => /^https?:\/\//i.test(value), 'Links must start with http:// or https://')
-
 export const logActivitySchema = z.object({
   type: z.enum(LOGGED_ACTIVITY_TYPES, { message: 'Select an activity type' }),
   occurredAt: z
@@ -261,7 +256,7 @@ export const organisationFormSchema = z
     type: z.enum(ORGANISATION_TYPES, { message: 'Select a type' }),
     industry: z.string().trim(),
     country: z.string().trim().min(1, 'Country is required').max(100),
-    website: z.union([z.string().trim().url('Enter a valid URL'), z.literal('')]),
+    website: z.union([webUrl, z.literal('')]),
     relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
     relationshipStatus: z.union([z.enum(RELATIONSHIP_STATUSES), z.literal('')]),
     tags: z.string(),

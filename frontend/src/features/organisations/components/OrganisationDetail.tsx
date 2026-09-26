@@ -12,8 +12,20 @@ import { PipelineStageSelect } from './PipelineStageSelect'
 import { MeetingsActivities } from './MeetingsActivities'
 import { PipelineTab } from './PipelineTab'
 import { RelationshipManagementForm } from './RelationshipManagementForm'
-import type { OrganisationActivity, OrganisationListItem } from '@/features/organisations/types'
+import {
+  isLoggedActivity,
+  type OrganisationActivity,
+  type OrganisationListItem,
+} from '@/features/organisations/types'
 import type { OpportunityListItem } from '@/features/opportunities/types'
+
+/** One line of the Activity Timeline — a stage change or a logged interaction. */
+function describeActivity(activity: OrganisationActivity) {
+  if (isLoggedActivity(activity)) return `${activity.type} logged`
+  return activity.fromStage
+    ? `Moved from ${activity.fromStage} to ${activity.toStage}`
+    : `Started at ${activity.toStage}`
+}
 
 /**
  * Organisation detail — screen 4 of the approved prototype.
@@ -137,20 +149,17 @@ export function OrganisationDetail({
 
             <Card title="Activity Timeline">
               <ul className="space-y-2 text-sm text-zinc-600">
-                {activities.slice(0, 5).map((activity) => (
-                  <li key={activity.id}>
-                    {activity.fromStage
-                      ? `Moved from ${activity.fromStage} to ${activity.toStage}`
-                      : `Started at ${activity.toStage}`}{' '}
-                    ({formatRelativeTime(activity.createdAt)}
-                    {activity.actorLabel && `, ${activity.actorLabel}`})
-                  </li>
-                ))}
+                {activities
+                  .filter((activity) => activity.deletedAt === null)
+                  .slice(0, 5)
+                  .map((activity) => (
+                    <li key={activity.id}>
+                      {describeActivity(activity)} ({formatRelativeTime(activity.createdAt)}
+                      {activity.actorLabel && `, ${activity.actorLabel}`})
+                    </li>
+                  ))}
                 <li>Organisation added to CRM ({formatRelativeTime(organisation.createdAt)})</li>
               </ul>
-              <p className="mt-4 text-xs text-zinc-400">
-                Calls, meetings and emails appear here once those screens exist.
-              </p>
             </Card>
 
             <Card title="Linked Opportunities">

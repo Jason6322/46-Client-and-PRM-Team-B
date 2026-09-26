@@ -24,11 +24,15 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
 
 export function LinkedOrganisationSummary({
   organisation,
+  timeZone,
 }: {
   organisation: OrganisationListItem
+  /** The viewer's zone from `getViewerTimeZone()` — this renders on the server. */
+  timeZone: string | undefined
 }) {
   const { primaryContact, secondaryContact } = organisation
-  const overdue = organisation.nextActionDueAt !== null && isOverdue(organisation.nextActionDueAt)
+  const overdue =
+    organisation.nextActionDueAt !== null && isOverdue(organisation.nextActionDueAt, timeZone)
 
   return (
     <Card>

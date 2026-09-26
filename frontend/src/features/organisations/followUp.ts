@@ -23,20 +23,47 @@ export function millisToDateOnly(millis: number): string {
   return new Date(millis).toISOString().slice(0, 10)
 }
 
-/** Today's calendar date in the viewer's own zone, as "2026-09-02". */
-function todayDateOnly(): string {
+/**
+ * Today's calendar date, as "2026-09-02", in `timeZone`.
+ *
+ * In the browser, leave `timeZone` out and the viewer's own zone is used. On
+ * the server the runtime's zone is usually UTC, so Server Components must pass
+ * the viewer's zone from `getViewerTimeZone()` — otherwise "today" is a day
+ * off for Australian users for much of each day.
+ */
+function todayDateOnly(timeZone?: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    timeZone,
   }).format(new Date())
 }
 
 /** A follow-up is overdue once its due day has passed; due today is not overdue. */
-export function isOverdue(dueMillis: number): boolean {
-  return millisToDateOnly(dueMillis) < todayDateOnly()
+export function isOverdue(dueMillis: number, timeZone?: string): boolean {
+  return millisToDateOnly(dueMillis) < todayDateOnly(timeZone)
 }
 
-export function isDueToday(dueMillis: number): boolean {
-  return millisToDateOnly(dueMillis) === todayDateOnly()
+export function isDueToday(dueMillis: number, timeZone?: string): boolean {
+  return millisToDateOnly(dueMillis) === todayDateOnly(timeZone)
+}
+
+const DAY_MS = 86_400_000
+
+/**
+ * "Due in 3d", "Due today", "Overdue by 2d" — counted in whole calendar days,
+ * because a due date has no time of day.
+ */
+export function describeDue(dueMillis: number, timeZone?: string): string {
+  const days = Math.round(
+    (dateOnlyToDate(millisToDateOnly(dueMillis)).getTime() -
+      dateOnlyToDate(todayDateOnly(timeZone)).getTime()) /
+      DAY_MS
+  )
+
+  if (days === 0) return 'Due today'
+  if (days === 1) return 'Due tomorrow'
+  if (days > 0) return `Due in ${days}d`
+  return `Overdue by ${-days}d`
 }

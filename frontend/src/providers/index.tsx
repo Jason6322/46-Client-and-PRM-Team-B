@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { AuthProvider } from './AuthProvider'
 import { QueryProvider } from './QueryProvider'
 import { Toaster } from 'sonner'
+import { TimeZoneCookie } from '@/components/shared/TimeZoneCookie'
 
 /**
  * Compose all client-side providers here.
@@ -15,6 +16,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <AuthProvider>
         {children}
         <Toaster richColors position="top-right" />
+        <TimeZoneCookie />
       </AuthProvider>
     </QueryProvider>
   )

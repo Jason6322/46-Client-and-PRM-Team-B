@@ -7,6 +7,7 @@ import {
 } from '@/features/organisations/actions/organisations.actions'
 import { LinkedOrganisationSummary } from '@/features/organisations/components/LinkedOrganisationSummary'
 import { MeetingsActivities } from '@/features/organisations/components/MeetingsActivities'
+import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 
 export const metadata: Metadata = {
   title: 'Meetings & Activities',
@@ -18,7 +19,7 @@ export default async function MeetingsForOrganisationPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const result = await getOrganisation(id)
+  const [result, timeZone] = await Promise.all([getOrganisation(id), getViewerTimeZone()])
 
   if (!result.success || !result.data) notFound()
 
@@ -30,7 +31,7 @@ export default async function MeetingsForOrganisationPage({
         title={`${result.data.name} — Meetings & Activities`}
         description="Meetings, calls, emails and notes logged against this organisation"
       />
-      <LinkedOrganisationSummary organisation={result.data} />
+      <LinkedOrganisationSummary organisation={result.data} timeZone={timeZone} />
       <MeetingsActivities organisationId={id} activities={activities.data ?? []} />
     </div>
   )

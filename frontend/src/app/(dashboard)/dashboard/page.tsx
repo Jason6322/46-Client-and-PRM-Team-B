@@ -9,9 +9,10 @@ import {
   listOrganisations,
 } from '@/features/organisations/actions/organisations.actions'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
-import { isDueToday, isOverdue } from '@/features/organisations/followUp'
+import { describeDue, isDueToday, isOverdue } from '@/features/organisations/followUp'
 import { isLoggedActivity, type OrganisationActivity } from '@/features/organisations/types'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
+import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -41,9 +42,10 @@ type ActivityWithOrganisation = {
  */
 export default async function DashboardPage() {
   // Independent reads, so they run together rather than one after the other.
-  const [organisationResult, opportunityResult] = await Promise.all([
+  const [organisationResult, opportunityResult, timeZone] = await Promise.all([
     listOrganisations(),
     listOpportunities(),
+    getViewerTimeZone(),
   ])
 
   const organisations = organisationResult.data ?? []
@@ -86,8 +88,12 @@ export default async function DashboardPage() {
     .sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0))
 
   const withFollowUp = organisations.filter((organisation) => organisation.nextActionDueAt !== null)
-  const overdue = withFollowUp.filter((organisation) => isOverdue(organisation.nextActionDueAt!))
-  const dueToday = withFollowUp.filter((organisation) => isDueToday(organisation.nextActionDueAt!))
+  const overdue = withFollowUp.filter((organisation) =>
+    isOverdue(organisation.nextActionDueAt!, timeZone)
+  )
+  const dueToday = withFollowUp.filter((organisation) =>
+    isDueToday(organisation.nextActionDueAt!, timeZone)
+  )
 
   const byStage = PIPELINE_STAGES.map((stage) => ({
     stage,
@@ -254,13 +260,13 @@ export default async function DashboardPage() {
                       </Link>
                       <span
                         className={
-                          isOverdue(organisation.nextActionDueAt!)
+                          isOverdue(organisation.nextActionDueAt!, timeZone)
                             ? 'text-red-600'
                             : 'text-zinc-500'
                         }
                       >
                         {' '}
-                        — {formatRelativeTime(organisation.nextActionDueAt!)}
+                        — {describeDue(organisation.nextActionDueAt!, timeZone)}
                       </span>
                       {organisation.nextAction && (
                         <p className="text-xs text-zinc-500">{organisation.nextAction}</p>
