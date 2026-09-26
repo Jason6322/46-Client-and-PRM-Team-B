@@ -50,7 +50,7 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 ## `organisations` collection
 
 **Path:** `/organisations/{organisationId}`
-**Access:** Team-shared — any authenticated team member can read and write. _(Pending confirmation — see "Open question" below.)_
+**Access:** Team-shared — any authenticated team member can read and write through the app. Writes go only through the Server Actions (Admin SDK); the security rules let client SDKs read non-archived organisations and write nothing. See "Security rules" below.
 
 | Field                   | Type                                               | Required | Description                                                       |
 | ----------------------- | -------------------------------------------------- | -------- | ----------------------------------------------------------------- |
@@ -93,14 +93,14 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 **Creation:** `createOrganisation()` in `frontend/src/features/organisations/actions/organisations.actions.ts`.
 **Deletion:** Soft-delete only, via `archiveOrganisation()`. Reverse with `restoreOrganisation()`.
 
-**Open question:** security rules for this collection are **not yet written** — see the default-deny block in `firebase/firestore.rules`. Until they are added, every read and write to `organisations` is rejected.
+**Security rules** (`firebase/firestore.rules`): signed-in users may read organisations whose `deletedAt` is null; client writes are denied. The Server Actions use the Admin SDK, which bypasses rules, so the app is unaffected — denying client writes stops anyone skipping the Zod validation, activity history and soft-delete logic by writing with the client SDK. A client list query must filter on `where('deletedAt', '==', null)`, or Firestore rejects the whole query.
 
 ---
 
 ## `activities` subcollection
 
 **Path:** `/organisations/{organisationId}/activities/{activityId}`
-**Access:** Same as the parent organisation. Rules are matched by path, not inherited from the parent, so this needs its own `match` block — **not written yet**.
+**Access:** Same as the parent organisation — signed-in users may read, client writes are denied. Rules are matched by path, not inherited, so it has its own nested `match` block. Archived entries stay readable because the timeline lists them for restoring.
 
 Two kinds of entry share this subcollection, distinguished by `type`, so the interaction timeline and the stage history are one ordered record rather than two stores to merge.
 

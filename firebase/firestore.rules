@@ -56,6 +56,32 @@ service cloud.firestore {
       allow delete: if false; // soft-delete only — set deletedAt field instead
     }
 
+    // organisations/{organisationId}
+    // Team-shared: every signed-in team member works the same organisations.
+    //
+    // All writes go through the Server Actions in
+    // frontend/src/features/organisations/actions/, which use the Admin SDK
+    // (rules do not apply to it) and are where input is validated with Zod,
+    // stage changes are recorded as activity, and archiving is a soft delete.
+    // A client-SDK write would skip all of that, so clients may only read.
+    //
+    // Archived organisations (deletedAt set) are hidden from client reads; the
+    // archive screen reads them server-side. A client list query must therefore
+    // filter on where('deletedAt', '==', null) or the whole query is denied.
+    match /organisations/{organisationId} {
+      allow read: if isAuthenticated() && notDeleted();
+      allow write: if false;
+
+      // organisations/{organisationId}/activities/{activityId}
+      // Stage changes and logged meetings, calls, emails and notes. Archived
+      // entries stay readable — the timeline shows them in its archive section
+      // so they can be restored. Written only by the Server Actions, as above.
+      match /activities/{activityId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+    }
+
     // Add new collection rules above this comment using the /firebase-collection skill.
 
     // ── Default deny ───────────────────────────────────────────────────────
