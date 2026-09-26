@@ -10,7 +10,11 @@ import {
 } from '@/features/organisations/actions/organisations.actions'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
 import { describeDue, isDueToday, isOverdue } from '@/features/organisations/followUp'
-import { isLoggedActivity, type OrganisationActivity } from '@/features/organisations/types'
+import {
+  describeActivity,
+  isLoggedActivity,
+  type OrganisationActivity,
+} from '@/features/organisations/types'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 
@@ -101,15 +105,6 @@ export default async function DashboardPage() {
   }))
   const busiestStage = Math.max(1, ...byStage.map((entry) => entry.count))
 
-  const describe = (activity: OrganisationActivity) => {
-    if (!isLoggedActivity(activity)) {
-      return activity.fromStage
-        ? `Stage changed to ${activity.toStage}`
-        : `Started at ${activity.toStage}`
-    }
-    return activity.notes ?? activity.agenda ?? `${activity.type} logged`
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -193,7 +188,7 @@ export default async function DashboardPage() {
               <ul className="space-y-3">
                 {recentActivity.map(({ activity, organisationId, organisationName }) => (
                   <li key={activity.id} className="text-sm">
-                    <span className="text-zinc-700">{describe(activity)}</span>
+                    <span className="text-zinc-700">{describeActivity(activity)}</span>
                     <span className="text-zinc-500"> — </span>
                     <Link
                       href={`/organisations/${organisationId}`}

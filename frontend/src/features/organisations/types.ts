@@ -1,11 +1,12 @@
 import type { Organisation } from '@/types/firestore'
 import type { LoggedActivityType, PipelineStage } from '@/features/organisations/constants'
+import { truncate } from '@/lib/utils'
 
 /**
  * An entry in `organisations/{id}/activities`.
  *
- * Stage changes are the first kind recorded. Calls, meetings and emails are
- * meant to land here too, which is why `type` is a union rather than a flag —
+ * Holds both stage changes (written by the app) and hand-logged meetings,
+ * calls, emails and notes, which is why `type` is a union rather than a flag —
  * the Activity Timeline and the dashboard's Recent Activity both read this.
  */
 export interface OrganisationActivity {
@@ -43,6 +44,20 @@ export function isLoggedActivity(
   activity: OrganisationActivity
 ): activity is OrganisationActivity & { type: LoggedActivityType } {
   return activity.type !== 'stage_change'
+}
+
+/**
+ * One line describing an activity — shared by the dashboard's Recent Activity
+ * and the profile's Activity Timeline so both say the same thing.
+ */
+export function describeActivity(activity: OrganisationActivity): string {
+  if (isLoggedActivity(activity)) {
+    const summary = activity.agenda ?? activity.notes
+    return summary ? `${activity.type} logged: ${truncate(summary, 60)}` : `${activity.type} logged`
+  }
+  return activity.fromStage
+    ? `Moved from ${activity.fromStage} to ${activity.toStage}`
+    : `Started at ${activity.toStage}`
 }
 
 /**

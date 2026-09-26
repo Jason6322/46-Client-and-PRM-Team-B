@@ -13,19 +13,11 @@ import { MeetingsActivities } from './MeetingsActivities'
 import { PipelineTab } from './PipelineTab'
 import { RelationshipManagementForm } from './RelationshipManagementForm'
 import {
-  isLoggedActivity,
+  describeActivity,
   type OrganisationActivity,
   type OrganisationListItem,
 } from '@/features/organisations/types'
 import type { OpportunityListItem } from '@/features/opportunities/types'
-
-/** One line of the Activity Timeline — a stage change or a logged interaction. */
-function describeActivity(activity: OrganisationActivity) {
-  if (isLoggedActivity(activity)) return `${activity.type} logged`
-  return activity.fromStage
-    ? `Moved from ${activity.fromStage} to ${activity.toStage}`
-    : `Started at ${activity.toStage}`
-}
 
 /**
  * Organisation detail — screen 4 of the approved prototype.
