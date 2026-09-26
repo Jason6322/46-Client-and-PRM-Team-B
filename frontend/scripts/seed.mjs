@@ -346,7 +346,11 @@ function buildOrganisation(name) {
     const type = pick(LOGGED_TYPES)
     const upcoming = type === 'Meeting' && chance(0.3)
     const occurredAt = upcoming ? now + between(1, 6) * DAY : now - between(1, 40) * DAY
-    const recordedAt = upcoming ? now - between(1, 3) * DAY : occurredAt + between(0, 2) * DAY
+    // Recorded after it happened (people log a meeting the next morning), but
+    // always some minutes in the past, never clamped to exactly now.
+    const recordedAt = upcoming
+      ? now - between(1, 3) * DAY
+      : Math.min(occurredAt + between(0, 2) * DAY, now - between(10, 600) * 60_000)
     return {
       type,
       occurredAt: ts(occurredAt),
@@ -361,7 +365,7 @@ function buildOrganisation(name) {
       documentLinks: chance(0.3) ? [`https://docs.example.org/${slug(name)}`] : [],
       actorUid: 'seed-script',
       actorLabel: pick(OWNERS),
-      createdAt: ts(Math.min(recordedAt, now)),
+      createdAt: ts(recordedAt),
       deletedAt: null,
       _seed: true,
     }
@@ -429,7 +433,7 @@ function buildOpportunity(organisationId, organisation) {
   const createdAt = organisation.createdAt.toMillis() + between(1, 10) * DAY
   const completed = stage === 'Completed'
   return {
-    name: `${organisation.name.split(' ')[0]} ${pick(OPPORTUNITY_NAMES)}`,
+    name: pick(OPPORTUNITY_NAMES),
     organisationId,
     organisationName: organisation.name,
     type: pick(OPPORTUNITY_TYPES),
@@ -449,6 +453,34 @@ function buildOpportunity(organisationId, organisation) {
   }
 }
 
+const FUTURE_MEETINGS = [
+  { date: '2027-01-20', agenda: 'Annual partnership review' },
+  { date: '2027-03-10', agenda: 'Autumn harvest planning' },
+  { date: '2027-05-05', agenda: 'Grant round kickoff' },
+  { date: '2027-08-18', agenda: 'Supply agreement renewal' },
+]
+
+function futureMeeting(organisation, { date, agenda }) {
+  return {
+    type: 'Meeting',
+    occurredAt: Timestamp.fromDate(new Date(`${date}T00:00:00Z`)),
+    attendees: `${organisation.primaryContact.name}, ${organisation.relationshipOwner}`,
+    agenda,
+    notes: `${agenda} with ${organisation.name}.`,
+    outcome: null,
+    actionItems: null,
+    nextFollowUp: null,
+    meetingLink: 'https://meet.example.org/fsc',
+    documentLinks: [],
+    actorUid: 'seed-script',
+    actorLabel: organisation.relationshipOwner,
+    // Booked at the organisation's last activity, so that stays unchanged.
+    createdAt: organisation.lastActivityAt,
+    deletedAt: null,
+    _seed: true,
+  }
+}
+
 // ── Commands ────────────────────────────────────────────────────────────────
 
 async function seed() {
@@ -456,6 +488,13 @@ async function seed() {
   // A couple of archived organisations so the Archived screen has content.
   records.slice(0, 2).forEach(({ organisation }) => {
     organisation.deletedAt = ts(now - between(1, 20) * DAY)
+  })
+  // Meetings booked well ahead, in 2027, to show how far-future entries look
+  // on the timeline. 00:00 UTC is 10–11am in Melbourne.
+  FUTURE_MEETINGS.forEach((meeting, i) => {
+    const record = records[2 + i]
+    if (!record) return
+    record.activities.push(futureMeeting(record.organisation, meeting))
   })
 
   const activityCount = records.reduce((sum, r) => sum + r.activities.length, 0)
