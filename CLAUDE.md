@@ -310,6 +310,9 @@ pnpm run test:component   # Frontend unit tests
 pnpm run test:all         # All tests
 pnpm run lint             # ESLint across all packages
 pnpm run typecheck        # TypeScript check across all packages
+pnpm --filter frontend seed               # Dry run of the demo data (40 orgs, activity, opportunities)
+pnpm --filter frontend seed -- --write    # Write it — shared project, visible on the live site
+pnpm --filter frontend seed -- --clean    # Remove everything the seed wrote (`_seed: true`)
 ```
 
 ---
