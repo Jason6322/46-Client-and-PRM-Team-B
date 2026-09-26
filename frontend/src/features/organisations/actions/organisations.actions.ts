@@ -129,6 +129,7 @@ export async function listOrganisationActivities(
           actorUid: data.actorUid ?? '',
           actorLabel: text(data.actorLabel),
           createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
+          deletedAt: data.deletedAt instanceof Timestamp ? data.deletedAt.toMillis() : null,
         }
       }),
     }
@@ -167,6 +168,7 @@ export async function logActivity(
         actorUid: session.uid,
         actorLabel: session.name ?? session.email ?? null,
         createdAt: FieldValue.serverTimestamp(),
+        deletedAt: null,
       })
 
     // Logging an interaction is activity on the organisation, so the list
@@ -182,6 +184,49 @@ export async function logActivity(
     return { success: true, data: { id: ref.id } }
   } catch {
     return { success: false, error: 'Failed to log activity' }
+  }
+}
+
+/**
+ * Archive or restore a logged activity.
+ *
+ * A soft delete, per the convention in CLAUDE.md. Minutes and outcomes cannot
+ * be reconstructed once gone, so a mis-click must be recoverable. Stage
+ * changes are written by the app and are not archivable — the history would
+ * stop matching the organisation's actual stage.
+ */
+export async function setActivityArchived(
+  organisationId: string,
+  activityId: string,
+  archived: boolean
+): Promise<ActionResult> {
+  await requireAuth()
+
+  try {
+    const ref = adminDb
+      .collection(COLLECTION)
+      .doc(organisationId)
+      .collection(ACTIVITIES)
+      .doc(activityId)
+
+    const snapshot = await ref.get()
+    const data = snapshot.data()
+
+    if (!snapshot.exists || !data) {
+      return { success: false, error: 'Activity not found' }
+    }
+
+    if (data.type === 'stage_change') {
+      return { success: false, error: 'Stage changes cannot be archived' }
+    }
+
+    await ref.update({ deletedAt: archived ? FieldValue.serverTimestamp() : null })
+
+    revalidatePath(`/organisations/${organisationId}`)
+    revalidatePath(`/meetings/${organisationId}`)
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to update activity' }
   }
 }
 

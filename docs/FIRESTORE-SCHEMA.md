@@ -127,7 +127,9 @@ Links are restricted to `http`/`https` in validation: `z.string().url()` accepts
 **Written by:** `changePipelineStage()`, `saveRelationshipManagement()` when advancing a stage, and `logActivity()`.
 **Read by:** `listOrganisationActivities()` — newest first, capped at 50.
 
-Entries are never edited or deleted; there is no UI for either.
+| `deletedAt` | `Timestamp \| null` | Soft-delete marker for logged activities; `null` when active |
+
+Logged activities can be archived and restored via `setActivityArchived()`; archived entries appear in a collapsed "Archived" section on the timeline. Stage changes cannot be archived — the history would stop matching the organisation's actual stage. Nothing is ever hard-deleted, and entries cannot be edited.
 
 ---
 

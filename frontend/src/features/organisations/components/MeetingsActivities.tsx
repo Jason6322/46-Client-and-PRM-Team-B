@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,7 +9,10 @@ import { AutoGrowTextarea } from '@/components/shared/AutoGrowTextarea'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { inputClass, labelClass } from '@/components/shared/formClasses'
-import { logActivity } from '@/features/organisations/actions/organisations.actions'
+import {
+  logActivity,
+  setActivityArchived,
+} from '@/features/organisations/actions/organisations.actions'
 import { ACTIVITY_TYPE_CLASSES, LOGGED_ACTIVITY_TYPES } from '@/features/organisations/constants'
 import {
   logActivityFormSchema,
@@ -56,7 +60,24 @@ export function MeetingsActivities({
   activities: OrganisationActivity[]
 }) {
   const router = useRouter()
-  const logged = activities.filter(isLoggedActivity)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const loggedAll = activities.filter(isLoggedActivity)
+  const logged = loggedAll.filter((activity) => activity.deletedAt === null)
+  const archived = loggedAll.filter((activity) => activity.deletedAt !== null)
+
+  const setArchived = async (activity: OrganisationActivity, archive: boolean) => {
+    setBusyId(activity.id)
+    const result = await setActivityArchived(organisationId, activity.id, archive)
+    setBusyId(null)
+
+    if (!result.success) {
+      toast.error(result.error ?? 'Failed to update activity')
+      return
+    }
+
+    toast.success(archive ? `${activity.type} archived` : `${activity.type} restored`)
+    router.refresh()
+  }
 
   const {
     register,
@@ -216,13 +237,53 @@ export function MeetingsActivities({
                   </div>
                 )}
 
-                <p className="mt-2 text-xs text-zinc-400">
-                  By {activity.actorLabel ?? 'Unknown'} · logged{' '}
-                  {formatDatetime(new Date(activity.createdAt))}
-                </p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className="text-xs text-zinc-400">
+                    By {activity.actorLabel ?? 'Unknown'} · logged{' '}
+                    {formatDatetime(new Date(activity.createdAt))}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void setArchived(activity, true)}
+                    disabled={busyId === activity.id}
+                    className="shrink-0 text-xs font-medium text-zinc-500 transition-colors hover:text-red-600 disabled:opacity-60"
+                  >
+                    {busyId === activity.id ? 'Archiving...' : 'Archive'}
+                  </button>
+                </div>
               </li>
             ))}
           </ol>
+        )}
+
+        {archived.length > 0 && (
+          <details className="mt-4 border-t border-zinc-100 pt-4">
+            <summary className="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-800">
+              Archived ({archived.length})
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {archived.map((activity) => (
+                <li
+                  key={activity.id}
+                  className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2"
+                >
+                  <span className="min-w-0 text-xs text-zinc-500">
+                    <span className="font-medium text-zinc-600">{activity.type}</span> ·{' '}
+                    {formatDate(new Date(activity.occurredAt ?? activity.createdAt))}
+                    {activity.notes && <span className="block truncate">{activity.notes}</span>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void setArchived(activity, false)}
+                    disabled={busyId === activity.id}
+                    className="text-brand-600 hover:text-brand-700 shrink-0 text-xs font-semibold transition-colors disabled:opacity-60"
+                  >
+                    {busyId === activity.id ? 'Restoring...' : 'Restore'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </Card>
 

@@ -34,6 +34,8 @@ export interface OrganisationActivity {
   actorUid: string
   actorLabel: string | null
   createdAt: number
+  /** Archived entries stay in the timeline's archive section and can be restored. */
+  deletedAt: number | null
 }
 
 /** Narrowing helper — a hand-logged interaction rather than a stage change. */
