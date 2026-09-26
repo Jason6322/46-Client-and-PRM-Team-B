@@ -1,6 +1,22 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import { createRequire } from 'module'
+import { dirname, resolve } from 'path'
+
+// Unit tests exercise Server Component modules, so the 'server-only' marker is
+// resolved to its react-server (no-op) build instead of the client build, which
+// throws on import.
+//
+// Where pnpm puts the package depends on the pnpm version: .npmrc sets
+// node-linker=hoisted, which pnpm 10 (CI, Vercel) honours — the package lands in
+// the root node_modules — while pnpm 11 ignores .npmrc and links it under
+// frontend/node_modules. Hard-coding either path breaks the other, so let Node
+// find the package, then take empty.js from beside it. (The exports map only
+// exposes ".", so require.resolve('server-only/empty.js') is blocked.)
+const serverOnlyEmpty = resolve(
+  dirname(createRequire(import.meta.url).resolve('server-only')),
+  'empty.js'
+)
 
 export default defineConfig({
   plugins: [react()],
@@ -22,15 +38,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      // Unit tests exercise Server Component modules, so resolve the
-      // 'server-only' marker to its react-server (no-op) build instead of the
-      // client build, which throws on import.
-      //
-      // The path is relative to frontend/, not the repo root: pnpm links a
-      // package's direct dependencies into that package's own node_modules and
-      // does not hoist them to the root. The package's exports map only exposes
-      // ".", so require.resolve('server-only/empty.js') is not an option.
-      'server-only': resolve(__dirname, './node_modules/server-only/empty.js'),
+      'server-only': serverOnlyEmpty,
     },
   },
 })
