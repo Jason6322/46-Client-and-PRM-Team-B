@@ -4,30 +4,86 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { listOpportunities } from '@/features/opportunities/actions/opportunities.actions'
-import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
+import {
+  listOrganisationActivities,
+  listOrganisations,
+} from '@/features/organisations/actions/organisations.actions'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
 import { isDueToday, isOverdue } from '@/features/organisations/followUp'
-import { formatRelativeTime } from '@/lib/utils'
+import { isLoggedActivity, type OrganisationActivity } from '@/features/organisations/types'
+import { formatDate, formatRelativeTime } from '@/lib/utils'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
 }
 
+/** Activity panels only cover the most recently active organisations. */
+const ACTIVITY_ORGANISATION_LIMIT = 10
+const SEVEN_DAYS_MS = 7 * 86_400_000
+
+/** The window "Meetings (next 7 days)" covers, read once per render. */
+function nextSevenDays() {
+  const from = Date.now()
+  return { from, to: from + SEVEN_DAYS_MS }
+}
+
+type ActivityWithOrganisation = {
+  activity: OrganisationActivity
+  organisationId: string
+  organisationName: string
+}
+
 /**
  * CRM dashboard — screen 1 of the approved prototype.
  *
- * Everything here is derived from the organisations collection. Opportunities
- * and meetings have no data source yet, so those panels say so rather than
- * showing a zero that looks like a real count.
+ * Every panel is derived from the organisations, opportunities and activity
+ * that already exist; nothing here is placeholder.
  */
 export default async function DashboardPage() {
-  const result = await listOrganisations()
-  const organisations = result.success && result.data ? result.data : []
+  // Independent reads, so they run together rather than one after the other.
+  const [organisationResult, opportunityResult] = await Promise.all([
+    listOrganisations(),
+    listOpportunities(),
+  ])
 
-  const opportunityResult = await listOpportunities()
+  const organisations = organisationResult.data ?? []
   const openOpportunities = (opportunityResult.data ?? []).filter(
     (opportunity) => opportunity.completedAt === null
   )
+
+  // Activity lives in a subcollection per organisation. Reading every one
+  // would cost a query per organisation, so this covers the most recently
+  // active few — which is what these two panels are about anyway.
+  const recentOrganisations = organisations.slice(0, ACTIVITY_ORGANISATION_LIMIT)
+  const activityResults = await Promise.all(
+    recentOrganisations.map((organisation) => listOrganisationActivities(organisation.id))
+  )
+
+  const allActivity: ActivityWithOrganisation[] = activityResults.flatMap((result, index) => {
+    const organisation = recentOrganisations[index]
+    if (!result.data || !organisation) return []
+
+    return result.data
+      .filter((activity) => activity.deletedAt === null)
+      .map((activity) => ({
+        activity,
+        organisationId: organisation.id,
+        organisationName: organisation.name,
+      }))
+  })
+
+  const recentActivity = [...allActivity]
+    .sort((a, b) => b.activity.createdAt - a.activity.createdAt)
+    .slice(0, 5)
+
+  const { from, to } = nextSevenDays()
+  const upcomingMeetings = allActivity
+    .filter(({ activity }) => {
+      if (!isLoggedActivity(activity) || activity.type !== 'Meeting') return false
+      const when = activity.occurredAt
+      return when !== null && when >= from && when <= to
+    })
+    .sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0))
 
   const withFollowUp = organisations.filter((organisation) => organisation.nextActionDueAt !== null)
   const overdue = withFollowUp.filter((organisation) => isOverdue(organisation.nextActionDueAt!))
@@ -39,13 +95,14 @@ export default async function DashboardPage() {
   }))
   const busiestStage = Math.max(1, ...byStage.map((entry) => entry.count))
 
-  const recentlyUpdated = [...organisations]
-    .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
-    .slice(0, 5)
-
-  const upcomingFollowUps = [...withFollowUp]
-    .sort((a, b) => a.nextActionDueAt! - b.nextActionDueAt!)
-    .slice(0, 5)
+  const describe = (activity: OrganisationActivity) => {
+    if (!isLoggedActivity(activity)) {
+      return activity.fromStage
+        ? `Stage changed to ${activity.toStage}`
+        : `Started at ${activity.toStage}`
+    }
+    return activity.notes ?? activity.agenda ?? `${activity.type} logged`
+  }
 
   return (
     <div className="space-y-6">
@@ -62,11 +119,11 @@ export default async function DashboardPage() {
         }
       />
 
-      {!result.success && (
+      {!organisationResult.success && (
         <Card>
           <EmptyState
             title="Could not load organisations"
-            description={result.error ?? 'Try refreshing the page.'}
+            description={organisationResult.error ?? 'Try refreshing the page.'}
           />
         </Card>
       )}
@@ -95,7 +152,7 @@ export default async function DashboardPage() {
         </Card>
 
         <Card className="p-5">
-          <p className="text-2xl font-normal text-zinc-400">—</p>
+          <p className="text-brand-600 text-2xl font-semibold">{upcomingMeetings.length}</p>
           <p className="mt-1 text-sm text-zinc-500">Meetings (next 7 days)</p>
         </Card>
       </div>
@@ -123,23 +180,24 @@ export default async function DashboardPage() {
         </Card>
 
         <div className="space-y-6">
-          <Card title="Recently Updated">
-            {recentlyUpdated.length === 0 ? (
+          <Card title="Recent Activity">
+            {recentActivity.length === 0 ? (
               <EmptyState title="No activity yet" />
             ) : (
               <ul className="space-y-3">
-                {recentlyUpdated.map((organisation) => (
-                  <li key={organisation.id} className="text-sm">
+                {recentActivity.map(({ activity, organisationId, organisationName }) => (
+                  <li key={activity.id} className="text-sm">
+                    <span className="text-zinc-700">{describe(activity)}</span>
+                    <span className="text-zinc-500"> — </span>
                     <Link
-                      href={`/organisations/${organisation.id}`}
+                      href={`/organisations/${organisationId}`}
                       className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
                     >
-                      {organisation.name}
+                      {organisationName}
                     </Link>
                     <span className="text-zinc-500">
                       {' '}
-                      — {organisation.pipelineStage} ·{' '}
-                      {formatRelativeTime(organisation.lastActivityAt)}
+                      ({formatRelativeTime(activity.createdAt)})
                     </span>
                   </li>
                 ))}
@@ -147,32 +205,68 @@ export default async function DashboardPage() {
             )}
           </Card>
 
+          <Card title="Upcoming Meetings">
+            {upcomingMeetings.length === 0 ? (
+              <EmptyState
+                title="Nothing in the next 7 days"
+                description="Meetings logged with a future date appear here."
+              />
+            ) : (
+              <ul className="space-y-3">
+                {upcomingMeetings
+                  .slice(0, 5)
+                  .map(({ activity, organisationId, organisationName }) => (
+                    <li key={activity.id} className="text-sm">
+                      <span className="text-zinc-700">
+                        {formatDate(new Date(activity.occurredAt!))}
+                      </span>
+                      <span className="text-zinc-500"> — </span>
+                      <Link
+                        href={`/meetings/${organisationId}`}
+                        className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
+                      >
+                        {organisationName}
+                      </Link>
+                      {activity.agenda && (
+                        <p className="text-xs text-zinc-500">{activity.agenda}</p>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </Card>
+
           <Card title="Upcoming Follow-ups">
-            {upcomingFollowUps.length === 0 ? (
+            {withFollowUp.length === 0 ? (
               <EmptyState title="No follow-ups scheduled" />
             ) : (
               <ul className="space-y-3">
-                {upcomingFollowUps.map((organisation) => (
-                  <li key={organisation.id} className="text-sm">
-                    <Link
-                      href={`/organisations/${organisation.id}`}
-                      className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
-                    >
-                      {organisation.name}
-                    </Link>
-                    <span
-                      className={
-                        isOverdue(organisation.nextActionDueAt!) ? 'text-red-600' : 'text-zinc-500'
-                      }
-                    >
-                      {' '}
-                      — {formatRelativeTime(organisation.nextActionDueAt!)}
-                    </span>
-                    {organisation.nextAction && (
-                      <p className="text-xs text-zinc-500">{organisation.nextAction}</p>
-                    )}
-                  </li>
-                ))}
+                {[...withFollowUp]
+                  .sort((a, b) => a.nextActionDueAt! - b.nextActionDueAt!)
+                  .slice(0, 5)
+                  .map((organisation) => (
+                    <li key={organisation.id} className="text-sm">
+                      <Link
+                        href={`/organisations/${organisation.id}`}
+                        className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
+                      >
+                        {organisation.name}
+                      </Link>
+                      <span
+                        className={
+                          isOverdue(organisation.nextActionDueAt!)
+                            ? 'text-red-600'
+                            : 'text-zinc-500'
+                        }
+                      >
+                        {' '}
+                        — {formatRelativeTime(organisation.nextActionDueAt!)}
+                      </span>
+                      {organisation.nextAction && (
+                        <p className="text-xs text-zinc-500">{organisation.nextAction}</p>
+                      )}
+                    </li>
+                  ))}
               </ul>
             )}
           </Card>
