@@ -4,6 +4,7 @@ import type {
   PipelineStage,
   RelationshipStatus,
 } from '@/features/organisations/constants'
+import type { OpportunityType } from '@/features/opportunities/constants'
 
 /**
  * Firestore collection type definitions.
@@ -88,6 +89,35 @@ export interface Organisation {
   createdAt: Timestamp
   updatedAt: Timestamp
   lastActivityAt: Timestamp
+  deletedAt: Timestamp | null
+  _schemaVersion: 1
+}
+
+/**
+ * opportunities/{id} — a specific piece of work with an organisation.
+ *
+ * Separate from the organisation's own pipeline stage: one organisation can
+ * carry several opportunities at different stages.
+ */
+export interface Opportunity {
+  id: string
+  name: string
+  organisationId: string
+  /** Denormalised so the list renders without reading every organisation. */
+  organisationName: string
+  type: OpportunityType
+  stage: PipelineStage
+  owner: string
+  nextStep: string | null
+  /** Link to the proposal or supporting document; http/https only. */
+  proposalDocument: string | null
+  description: string | null
+  expectedOutcome: string | null
+  /** Set by "Mark Complete"; null while the opportunity is open. */
+  completedAt: Timestamp | null
+  createdBy: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
   deletedAt: Timestamp | null
   _schemaVersion: 1
 }

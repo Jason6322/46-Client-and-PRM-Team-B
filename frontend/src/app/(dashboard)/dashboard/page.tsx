@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { listOpportunities } from '@/features/opportunities/actions/opportunities.actions'
 import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
 import { isDueToday, isOverdue } from '@/features/organisations/followUp'
@@ -22,6 +23,11 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const result = await listOrganisations()
   const organisations = result.success && result.data ? result.data : []
+
+  const opportunityResult = await listOpportunities()
+  const openOpportunities = (opportunityResult.data ?? []).filter(
+    (opportunity) => opportunity.completedAt === null
+  )
 
   const withFollowUp = organisations.filter((organisation) => organisation.nextActionDueAt !== null)
   const overdue = withFollowUp.filter((organisation) => isOverdue(organisation.nextActionDueAt!))
@@ -84,7 +90,7 @@ export default async function DashboardPage() {
         </Card>
 
         <Card className="p-5">
-          <p className="text-2xl font-normal text-zinc-400">—</p>
+          <p className="text-brand-600 text-2xl font-semibold">{openOpportunities.length}</p>
           <p className="mt-1 text-sm text-zinc-500">Active Opportunities</p>
         </Card>
 
@@ -173,11 +179,63 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <Card title="Active Partnership Opportunities">
-        <EmptyState
-          title="Opportunities are not built yet"
-          description="This panel will fill in once the opportunities screen exists."
-        />
+      <Card title="Active Partnership Opportunities" className="p-0">
+        {openOpportunities.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              title="No open opportunities"
+              description="Raise one against an organisation and it will appear here."
+              action={
+                <Link
+                  href="/opportunities/new"
+                  className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+                >
+                  + New Opportunity
+                </Link>
+              }
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-3xl border-collapse text-left">
+              <thead>
+                <tr className="border-b border-zinc-100">
+                  {['Opportunity', 'Organisation', 'Stage', 'Owner', 'Next Step'].map((column) => (
+                    <th
+                      key={column}
+                      scope="col"
+                      className="px-6 py-4 text-xs font-semibold text-zinc-500"
+                    >
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {openOpportunities.slice(0, 8).map((opportunity) => (
+                  <tr key={opportunity.id} className="border-b border-zinc-50 last:border-0">
+                    <td className="px-6 py-4 text-sm font-medium">
+                      <Link
+                        href={`/opportunities?selected=${opportunity.id}`}
+                        className="hover:text-brand-600 text-zinc-900 transition-colors"
+                      >
+                        {opportunity.name}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-zinc-600">
+                      {opportunity.organisationName}
+                    </td>
+                    <td className="text-brand-600 px-6 py-4 text-sm">{opportunity.stage}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-600">{opportunity.owner}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-600">
+                      {opportunity.nextStep ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   )

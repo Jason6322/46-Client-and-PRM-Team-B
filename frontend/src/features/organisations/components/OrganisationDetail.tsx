@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, formatRelativeTime } from '@/lib/utils'
@@ -12,6 +13,7 @@ import { MeetingsActivities } from './MeetingsActivities'
 import { PipelineTab } from './PipelineTab'
 import { RelationshipManagementForm } from './RelationshipManagementForm'
 import type { OrganisationActivity, OrganisationListItem } from '@/features/organisations/types'
+import type { OpportunityListItem } from '@/features/opportunities/types'
 
 /**
  * Organisation detail — screen 4 of the approved prototype.
@@ -33,9 +35,11 @@ type Tab = (typeof TABS)[number]
 export function OrganisationDetail({
   organisation,
   activities,
+  opportunities,
 }: {
   organisation: OrganisationListItem
   activities: OrganisationActivity[]
+  opportunities: OpportunityListItem[]
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
 
@@ -150,7 +154,32 @@ export function OrganisationDetail({
             </Card>
 
             <Card title="Linked Opportunities">
-              <EmptyState title="No opportunities yet" />
+              {opportunities.length === 0 ? (
+                <EmptyState
+                  title="No opportunities yet"
+                  description="Raise one against this organisation to see it here."
+                />
+              ) : (
+                <ul className="space-y-3">
+                  {opportunities.map((opportunity) => (
+                    <li key={opportunity.id} className="text-sm">
+                      <Link
+                        href={`/opportunities?selected=${opportunity.id}`}
+                        className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
+                      >
+                        {opportunity.name}
+                      </Link>
+                      <span className="text-zinc-500">
+                        {' '}
+                        — {opportunity.type} · {opportunity.stage}
+                      </span>
+                      {opportunity.expectedOutcome && (
+                        <p className="text-xs text-zinc-500">{opportunity.expectedOutcome}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
           </div>
         </div>
@@ -158,6 +187,42 @@ export function OrganisationDetail({
         <RelationshipManagementForm organisation={organisation} />
       ) : activeTab === 'Pipeline' ? (
         <PipelineTab organisation={organisation} activities={activities} />
+      ) : activeTab === 'Opportunities' ? (
+        <Card title="Opportunities">
+          {opportunities.length === 0 ? (
+            <EmptyState
+              title="No opportunities yet"
+              description="Raise one against this organisation to see it here."
+              action={
+                <Link
+                  href="/opportunities/new"
+                  className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+                >
+                  + New Opportunity
+                </Link>
+              }
+            />
+          ) : (
+            <ul className="space-y-4">
+              {opportunities.map((opportunity) => (
+                <li key={opportunity.id} className="border-l-2 border-zinc-100 pl-4">
+                  <Link
+                    href={`/opportunities?selected=${opportunity.id}`}
+                    className="hover:text-brand-600 text-sm font-medium text-zinc-900 transition-colors"
+                  >
+                    {opportunity.name}
+                  </Link>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {opportunity.type} · {opportunity.stage} · {opportunity.owner}
+                  </p>
+                  {opportunity.nextStep && (
+                    <p className="mt-1 text-sm text-zinc-600">Next: {opportunity.nextStep}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       ) : activeTab === 'Meetings & Activities' ? (
         <MeetingsActivities organisationId={organisation.id} activities={activities} />
       ) : (

@@ -6,6 +6,7 @@ import {
   getOrganisation,
   listOrganisationActivities,
 } from '@/features/organisations/actions/organisations.actions'
+import { listOpportunitiesForOrganisation } from '@/features/opportunities/actions/opportunities.actions'
 import { ArchiveOrganisationButton } from '@/features/organisations/components/ArchiveOrganisationButton'
 import { OrganisationDetail } from '@/features/organisations/components/OrganisationDetail'
 
@@ -25,6 +26,7 @@ export default async function OrganisationDetailPage({
 
   const organisation = result.data
   const activities = await listOrganisationActivities(id)
+  const opportunities = await listOpportunitiesForOrganisation(id)
 
   return (
     <div className="space-y-6">
@@ -42,7 +44,11 @@ export default async function OrganisationDetailPage({
           </>
         }
       />
-      <OrganisationDetail organisation={organisation} activities={activities.data ?? []} />
+      <OrganisationDetail
+        organisation={organisation}
+        activities={activities.data ?? []}
+        opportunities={opportunities.data ?? []}
+      />
     </div>
   )
 }

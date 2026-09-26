@@ -111,7 +111,7 @@ Archiving is a soft delete (`deletedAt`) and is separate from the `Archived` pip
 
 ### Existing routes/pages
 
-Pages: `/` · `/auth/signin` · `/auth/signup` · `/dashboard` · `/profile` · `/settings` · `/organisations` · `/organisations/new` · `/organisations/[id]` · `/organisations/[id]/edit` · `/organisations/archived` · `/relationships` (organisation picker) · `/relationships/[id]` (relationship management; same component as the profile's Relationship Management tab) · `/pipeline` (drag-and-drop stage board) · `/meetings` (organisation picker) · `/meetings/[id]` (interaction timeline and logging) (route groups `(auth)`, `(dashboard)`). `/opportunities` exists for the nav but renders nothing yet.
+Pages: `/` · `/auth/signin` · `/auth/signup` · `/dashboard` · `/profile` · `/settings` · `/organisations` · `/organisations/new` · `/organisations/[id]` · `/organisations/[id]/edit` · `/organisations/archived` · `/relationships` (organisation picker) · `/relationships/[id]` (relationship management; same component as the profile's Relationship Management tab) · `/pipeline` (drag-and-drop stage board) · `/meetings` (organisation picker) · `/meetings/[id]` (interaction timeline and logging) (route groups `(auth)`, `(dashboard)`). `/opportunities` (table, detail and related panel) and `/opportunities/new` complete the nav.
 
 API (Next.js Route Handlers on Vercel — these are what the live URL serves): `GET /api/health` (public) · `GET /api/me` (returns `{ uid, email }`; requires `Authorization: Bearer <ID token>`) · `POST|DELETE /api/auth/session`.
 

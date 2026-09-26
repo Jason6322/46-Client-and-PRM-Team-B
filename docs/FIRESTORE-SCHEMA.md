@@ -133,4 +133,36 @@ Logged activities can be archived and restored via `setActivityArchived()`; arch
 
 ---
 
+## `opportunities` collection
+
+**Path:** `/opportunities/{opportunityId}`
+**Access:** Team-shared, same as organisations. **Rules not written yet.**
+
+A specific piece of work with an organisation. Separate from the organisation's own pipeline stage, because one organisation can carry several opportunities at different stages.
+
+| Field              | Type                                            | Required | Description                                                                              |
+| ------------------ | ----------------------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `name`             | `string`                                        | Yes      | Opportunity name                                                                         |
+| `organisationId`   | `string`                                        | Yes      | The organisation it belongs to; fixed after creation                                     |
+| `organisationName` | `string`                                        | Yes      | Denormalised so the list renders without reading every organisation; refreshed on create |
+| `type`             | `'Partnership' \| 'Project' \| 'Collaboration'` | Yes      | From the wireframe's Type column                                                         |
+| `stage`            | `PipelineStage`                                 | Yes      | Reuses the organisation pipeline stages rather than a second list                        |
+| `owner`            | `string`                                        | Yes      | Assigned team member                                                                     |
+| `nextStep`         | `string \| null`                                | Yes      | Expected next step                                                                       |
+| `proposalDocument` | `string \| null`                                | Yes      | Link to the proposal; `http`/`https` only                                                |
+| `description`      | `string \| null`                                | Yes      | Free text                                                                                |
+| `expectedOutcome`  | `string \| null`                                | Yes      | Partnership outcome (expected)                                                           |
+| `completedAt`      | `Timestamp \| null`                             | Yes      | Set by "Mark Complete"; `null` while open                                                |
+| `createdBy`        | `string`                                        | Yes      | UID of the creating user                                                                 |
+| `createdAt`        | `Timestamp`                                     | Yes      | When created                                                                             |
+| `updatedAt`        | `Timestamp`                                     | Yes      | When last updated; drives list ordering                                                  |
+| `deletedAt`        | `Timestamp \| null`                             | Yes      | Soft-delete marker                                                                       |
+| `_schemaVersion`   | `1`                                             | Yes      | Schema version for lazy migration                                                        |
+
+`organisationId` is omitted from the update schema: moving an opportunity between organisations would silently detach it from the contacts and activity history shown beside it.
+
+**Actions:** `listOpportunities()`, `listOpportunitiesForOrganisation(id)`, `getOpportunity(id)`, `createOpportunity()`, `updateOpportunity()`, `setOpportunityComplete()`, `archiveOpportunity()` in `frontend/src/features/opportunities/actions/opportunities.actions.ts`.
+
+---
+
 <!-- Add new collection schemas below using the /firebase-collection skill -->
