@@ -1,4 +1,5 @@
 import { Card } from '@/components/shared/Card'
+import { labelClass } from '@/components/shared/formClasses'
 
 /**
  * Contacts card — left column of screen 4 in the approved prototype.
@@ -25,7 +26,7 @@ function ContactBlock({ label, contact }: { label: string; contact?: Organisatio
 
   return (
     <div>
-      <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">{label}</p>
+      <p className={labelClass}>{label}</p>
       {heading ? (
         <p className="mt-1 text-sm text-zinc-900">{heading}</p>
       ) : (
@@ -51,7 +52,7 @@ export function ContactsCard({ primary, secondary, notes }: ContactsCardProps) {
         <ContactBlock label="Secondary" contact={secondary} />
 
         <div>
-          <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Notes</p>
+          <p className={labelClass}>Notes</p>
           {notes ? (
             <p className="mt-1 text-sm whitespace-pre-line text-zinc-900">{notes}</p>
           ) : (

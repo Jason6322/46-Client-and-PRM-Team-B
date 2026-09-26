@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { inputClass, labelClass } from '@/components/shared/formClasses'
 import { setNextAction } from '@/features/organisations/actions/organisations.actions'
 import { isDueToday, isOverdue, millisToDateOnly } from '@/features/organisations/followUp'
 import { cn, formatDate } from '@/lib/utils'
@@ -14,9 +15,6 @@ import { cn, formatDate } from '@/lib/utils'
  * Read mode shows the follow-up with its due date, flagged when overdue or
  * due today. Edit mode saves through setNextAction without leaving the page.
  */
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 focus:outline-none'
 
 interface NextActionEditorProps {
   id: string
@@ -62,10 +60,7 @@ export function NextActionEditor({ id, nextAction, nextActionDueAt }: NextAction
         }}
       >
         <div>
-          <label
-            htmlFor="next-action"
-            className="text-xs font-semibold tracking-wide text-zinc-500 uppercase"
-          >
+          <label htmlFor="next-action" className={labelClass}>
             Next action
           </label>
           <input
@@ -78,10 +73,7 @@ export function NextActionEditor({ id, nextAction, nextActionDueAt }: NextAction
           />
         </div>
         <div>
-          <label
-            htmlFor="next-action-due"
-            className="text-xs font-semibold tracking-wide text-zinc-500 uppercase"
-          >
+          <label htmlFor="next-action-due" className={labelClass}>
             Due
           </label>
           <input

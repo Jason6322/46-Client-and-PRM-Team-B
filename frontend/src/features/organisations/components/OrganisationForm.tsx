@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { AutoGrowTextarea } from '@/components/shared/AutoGrowTextarea'
 import { Card } from '@/components/shared/Card'
+import { labelClass, inputClass } from '@/components/shared/formClasses'
 import { ORGANISATION_TYPES, RELATIONSHIP_STATUSES } from '@/features/organisations/constants'
 import {
   createOrganisation,
@@ -28,10 +29,6 @@ import { cn } from '@/lib/utils'
  * Validates against the same Zod definitions the Server Action uses, so the
  * browser and the server can never disagree about what is valid.
  */
-
-const labelClass = 'block text-xs font-semibold tracking-wide text-zinc-500 uppercase'
-const inputClass =
-  'mt-1.5 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 focus:outline-none'
 
 function Field({
   id,

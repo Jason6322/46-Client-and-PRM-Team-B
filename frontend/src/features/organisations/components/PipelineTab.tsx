@@ -1,6 +1,7 @@
 'use client'
 
 import { Card } from '@/components/shared/Card'
+import { labelClass } from '@/components/shared/formClasses'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
 import { PipelineStageSelect } from './PipelineStageSelect'
@@ -57,23 +58,17 @@ export function PipelineTab({
 
         <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-zinc-100 pt-5">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Current stage
-            </p>
+            <p className={labelClass}>Current stage</p>
             <div className="mt-1.5">
               <PipelineStageSelect id={organisation.id} stage={organisation.pipelineStage} />
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              In this stage
-            </p>
+            <p className={labelClass}>In this stage</p>
             <p className="mt-1.5 text-sm text-zinc-900">{formatRelativeTime(inStageSince)}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Relationship status
-            </p>
+            <p className={labelClass}>Relationship status</p>
             <p
               className={cn(
                 'mt-1.5 text-sm',

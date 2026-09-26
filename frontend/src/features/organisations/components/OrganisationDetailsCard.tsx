@@ -1,4 +1,5 @@
 import { Card } from '@/components/shared/Card'
+import { labelClass } from '@/components/shared/formClasses'
 import { cn } from '@/lib/utils'
 
 /**
@@ -18,7 +19,6 @@ interface OrganisationDetailsCardProps {
   tags?: string[]
 }
 
-const labelClass = 'block text-xs font-semibold tracking-wide text-zinc-500 uppercase'
 const valueClass =
   'mt-1.5 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900'
 

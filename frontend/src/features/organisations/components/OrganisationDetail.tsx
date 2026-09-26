@@ -132,13 +132,19 @@ export function OrganisationDetail({
 
             <Card title="Activity Timeline">
               <ul className="space-y-2 text-sm text-zinc-600">
+                {activities.slice(0, 5).map((activity) => (
+                  <li key={activity.id}>
+                    {activity.fromStage
+                      ? `Moved from ${activity.fromStage} to ${activity.toStage}`
+                      : `Started at ${activity.toStage}`}{' '}
+                    ({formatRelativeTime(activity.createdAt)}
+                    {activity.actorLabel && `, ${activity.actorLabel}`})
+                  </li>
+                ))}
                 <li>Organisation added to CRM ({formatRelativeTime(organisation.createdAt)})</li>
-                {organisation.updatedAt !== organisation.createdAt && (
-                  <li>Details updated ({formatRelativeTime(organisation.updatedAt)})</li>
-                )}
               </ul>
               <p className="mt-4 text-xs text-zinc-400">
-                Calls, meetings and emails appear here once activity logging is built.
+                Calls, meetings and emails appear here once those screens exist.
               </p>
             </Card>
 

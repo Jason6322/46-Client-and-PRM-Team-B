@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Card } from '@/components/shared/Card'
+import { labelClass } from '@/components/shared/formClasses'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { isOverdue } from '@/features/organisations/followUp'
 import { cn } from '@/lib/utils'
@@ -15,7 +16,7 @@ import type { OrganisationListItem } from '@/features/organisations/types'
 function Item({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">{label}</dt>
+      <dt className={labelClass}>{label}</dt>
       <dd className="mt-1 text-sm text-zinc-900">{children}</dd>
     </div>
   )
@@ -91,7 +92,7 @@ export function LinkedOrganisationSummary({
         </Item>
 
         <div className="sm:col-span-2 lg:col-span-4">
-          <dt className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Tags</dt>
+          <dt className={labelClass}>Tags</dt>
           <dd className="mt-1">
             {organisation.tags.length > 0 ? (
               <ul className="flex flex-wrap gap-2">
@@ -112,9 +113,7 @@ export function LinkedOrganisationSummary({
 
         {organisation.nextActionDueAt !== null && (
           <div className="sm:col-span-2 lg:col-span-4">
-            <dt className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Follow-up due
-            </dt>
+            <dt className={labelClass}>Follow-up due</dt>
             <dd
               className={cn('mt-1 text-sm', overdue ? 'font-medium text-red-600' : 'text-zinc-900')}
             >
