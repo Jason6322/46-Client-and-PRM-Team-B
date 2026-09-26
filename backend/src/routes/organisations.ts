@@ -7,8 +7,10 @@ import {
   organisationSchema,
   createOrganisationSchema,
   updateOrganisationSchema,
-  EMPTY_RELATIONSHIP,
+  changeStageSchema,
+  BLANK_RELATIONSHIP,
   type Organisation,
+  type StageTransition,
 } from '../schemas/organisation'
 import type { ZodError } from 'zod'
 
@@ -23,7 +25,7 @@ function organisations() {
 
 //turns a zod error into one readable line for the response
 
-function describe(error: ZodError): string {
+function explainError(error: ZodError): string {
   return error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')
 }
 
@@ -34,7 +36,7 @@ const router: ExpressRouter = Router()
 router.post('/', async (req, res, next) => {
   const parsed = createOrganisationSchema.safeParse(req.body)
   if (!parsed.success) {
-    next(HttpError.badRequest(describe(parsed.error)))
+    next(HttpError.badRequest(explainError(parsed.error)))
     return
   }
 
@@ -55,7 +57,8 @@ router.post('/', async (req, res, next) => {
       tags: input.tags ?? [],
       notes: input.notes ?? null,
       contacts: input.contacts ?? [],
-      relationship: { ...EMPTY_RELATIONSHIP, ...(input.relationship ?? {}) },
+      relationship: { ...BLANK_RELATIONSHIP, ...(input.relationship ?? {}) },
+      stageHistory: [],
       createdAt: now,
       createdBy: user.uid,
       updatedAt: now,
@@ -116,7 +119,7 @@ router.patch('/:id', async (req, res, next) => {
 
   const parsed = updateOrganisationSchema.safeParse(req.body)
   if (!parsed.success) {
-    next(HttpError.badRequest(describe(parsed.error)))
+    next(HttpError.badRequest(explainError(parsed.error)))
     return
   }
 
@@ -138,7 +141,73 @@ router.patch('/:id', async (req, res, next) => {
 
     const validated = organisationSchema.safeParse(updated)
     if (!validated.success) {
-      next(HttpError.badRequest(describe(validated.error)))
+      next(HttpError.badRequest(explainError(validated.error)))
+      return
+    }
+
+    await ref.set(validated.data)
+    res.json({ id, ...validated.data })
+  } catch (error) {
+    next(error)
+  }
+})
+
+//POST /api/organisations/:id/stage - move an org to a different pipeline stage
+//every move is appended to stageHistory so we keep a full record of who moved it and why
+
+router.post('/:id/stage', async (req, res, next) => {
+  const id = req.params['id']
+  if (!id) {
+    next(HttpError.badRequest('id is required'))
+    return
+  }
+
+  const parsed = changeStageSchema.safeParse(req.body)
+  if (!parsed.success) {
+    next(HttpError.badRequest(explainError(parsed.error)))
+    return
+  }
+
+  try {
+    const { user } = req as unknown as AuthenticatedRequest
+    const ref = organisations().doc(id)
+    const existing = (await ref.get()).data()
+    if (!existing || existing.deletedAt !== null) {
+      next(HttpError.notFound('Organisation', id))
+      return
+    }
+
+    const { toStage, assignedOwner, note, nextAction } = parsed.data
+
+    if (existing.pipelineStage === toStage) {
+      next(HttpError.conflict(`Organisation is already at stage '${toStage}'`))
+      return
+    }
+
+    const now = new Date().toISOString()
+    const owner = assignedOwner ?? existing.relationshipOwner
+
+    const transition: StageTransition = {
+      fromStage: existing.pipelineStage,
+      toStage,
+      changedBy: user.uid,
+      changedAt: now,
+      assignedOwner: owner,
+      note: note ?? null,
+      nextAction: nextAction ?? null,
+    }
+
+    const updated: Organisation = {
+      ...existing,
+      pipelineStage: toStage,
+      relationshipOwner: owner,
+      stageHistory: [...existing.stageHistory, transition],
+      updatedAt: now,
+    }
+
+    const validated = organisationSchema.safeParse(updated)
+    if (!validated.success) {
+      next(HttpError.badRequest(explainError(validated.error)))
       return
     }
 

@@ -19,7 +19,7 @@ export const PIPELINE_STAGES = [
 
 export const ORGANISATION_TYPES = ['Industry Partner', 'Client', 'Collaborator'] as const
 
-//stores contacts within the org record since theyre only required for profile
+//stores contacts within org record since theyre only required for profile
 
 export const contactSchema = z.object({
   name: z.string().min(1),
@@ -29,7 +29,7 @@ export const contactSchema = z.object({
   isPrimary: z.boolean(),
 })
 
-//stores repationship info - reasech, lead score and nwxt steps with 1 record per org
+//stores relationship info - research, lead score and next steps with 1 record per org
 
 export const relationshipSchema = z.object({
   researchInfo: z.string().nullable(),
@@ -45,7 +45,19 @@ export const relationshipSchema = z.object({
   relationshipNotes: z.string().nullable(),
 })
 
-//represents the full doc in its firestore representation
+//records each time an org moves pipeline stage, history is append only
+
+export const stageMoveSchema = z.object({
+  fromStage: z.enum(PIPELINE_STAGES).nullable(),
+  toStage: z.enum(PIPELINE_STAGES),
+  changedBy: z.string().min(1),
+  changedAt: z.string().datetime(),
+  assignedOwner: z.string().nullable(),
+  note: z.string().nullable(),
+  nextAction: z.string().nullable(),
+})
+
+//represents full doc in it's firestore represntation
 
 export const organisationSchema = z.object({
   name: z.string().min(1),
@@ -60,6 +72,7 @@ export const organisationSchema = z.object({
   notes: z.string().nullable(),
   contacts: z.array(contactSchema),
   relationship: relationshipSchema,
+  stageHistory: z.array(stageMoveSchema),
   createdAt: z.string().datetime(),
   createdBy: z.string().min(1),
   updatedAt: z.string().datetime(),
@@ -67,7 +80,7 @@ export const organisationSchema = z.object({
   _schemaVersion: z.literal(1),
 })
 
-//defines the fields accepted when a new org is created
+//defines fields accepted when a new org is created
 
 export const createOrganisationSchema = z.object({
   name: z.string().min(1),
@@ -105,15 +118,26 @@ export const updateOrganisationSchema = z
     message: 'At least one field must be provided',
   })
 
+//payload for moving an org to a different pipeline stage
+
+export const changeStageSchema = z.object({
+  toStage: z.enum(PIPELINE_STAGES),
+  assignedOwner: z.string().min(1).optional(),
+  note: z.string().nullable().optional(),
+  nextAction: z.string().nullable().optional(),
+})
+
 export type Organisation = z.infer<typeof organisationSchema>
 export type Contact = z.infer<typeof contactSchema>
 export type Relationship = z.infer<typeof relationshipSchema>
+export type StageTransition = z.infer<typeof stageMoveSchema>
 export type CreateOrganisationInput = z.infer<typeof createOrganisationSchema>
 export type UpdateOrganisationInput = z.infer<typeof updateOrganisationSchema>
+export type MoveStageInput = z.infer<typeof changeStageSchema>
 
 //empty relationship used when a new org is created
 
-export const EMPTY_RELATIONSHIP: Relationship = {
+export const BLANK_RELATIONSHIP: Relationship = {
   researchInfo: null,
   researchStatus: null,
   businessBrief: null,
