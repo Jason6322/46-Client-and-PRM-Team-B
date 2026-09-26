@@ -179,10 +179,18 @@ export function MeetingsActivities({
                 </p>
 
                 {(activity.attendees ||
+                  (activity.notes && activity.agenda) ||
                   activity.outcome ||
                   activity.actionItems ||
                   activity.nextFollowUp) && (
                   <dl className="mt-2 space-y-1 text-xs text-zinc-600">
+                    {/* The agenda is the headline only when there are no notes. */}
+                    {activity.notes && activity.agenda && (
+                      <div>
+                        <dt className="inline text-zinc-500">Agenda: </dt>
+                        <dd className="inline">{activity.agenda}</dd>
+                      </div>
+                    )}
                     {activity.attendees && (
                       <div>
                         <dt className="inline text-zinc-500">Attendees: </dt>

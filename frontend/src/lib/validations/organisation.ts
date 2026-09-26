@@ -350,7 +350,7 @@ export function toOrganisationFormValues(organisation: {
     website: organisation.website ?? '',
     relationshipOwner: organisation.relationshipOwner,
     relationshipStatus: organisation.relationshipStatus ?? '',
-    tags: organisation.tags.join(', '),
+    tags: [...new Set(organisation.tags)].join(', '),
     notes: organisation.notes ?? '',
     nextAction: organisation.nextAction ?? '',
     nextActionDueAt:

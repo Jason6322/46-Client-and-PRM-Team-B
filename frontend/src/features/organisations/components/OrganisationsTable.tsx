@@ -144,7 +144,9 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-zinc-600">
-                      {organisation.tags.length > 0 ? organisation.tags.join(', ') : '—'}
+                      {organisation.tags.length > 0
+                        ? [...new Set(organisation.tags)].join(', ')
+                        : '—'}
                     </td>
                     <td className="px-6 py-4 text-sm text-zinc-500">
                       {formatRelativeTime(organisation.lastActivityAt)}
