@@ -1,7 +1,11 @@
 import Link from 'next/link'
 import { Card } from '@/components/shared/Card'
 import { labelClass } from '@/components/shared/formClasses'
-import { isLoggedActivity, type OrganisationActivity } from '@/features/organisations/types'
+import {
+  byOccurrence,
+  isLoggedActivity,
+  type OrganisationActivity,
+} from '@/features/organisations/types'
 import type { OrganisationListItem } from '@/features/organisations/types'
 import { formatDate } from '@/lib/utils'
 
@@ -12,6 +16,11 @@ import { formatDate } from '@/lib/utils'
  * Everything here belongs to the opportunity's organisation rather than the
  * opportunity itself, so it is read-only and links back to the organisation.
  */
+/** The time of this request. A Server Component renders once per request, so it is stable. */
+function requestTime() {
+  return Date.now()
+}
+
 export function RelatedToOpportunity({
   organisation,
   activities,
@@ -29,7 +38,11 @@ export function RelatedToOpportunity({
     )
   }
 
-  const logged = activities.filter(isLoggedActivity).filter((entry) => entry.deletedAt === null)
+  const { upcoming, past } = byOccurrence(
+    activities.filter(isLoggedActivity).filter((entry) => entry.deletedAt === null),
+    requestTime()
+  )
+  const logged = [...upcoming, ...past]
   const meetings = logged.filter((entry) => entry.type === 'Meeting')
   const others = logged.filter((entry) => entry.type !== 'Meeting')
 

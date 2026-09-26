@@ -46,6 +46,27 @@ export function isLoggedActivity(
   return activity.type !== 'stage_change'
 }
 
+/** When an activity happened — or, for a stage change, when it was recorded. */
+export function happenedAt(activity: OrganisationActivity): number {
+  return activity.occurredAt ?? activity.createdAt
+}
+
+/**
+ * Order activities by when they happen, not when they were logged: upcoming
+ * ones first, soonest first, then past ones, newest first. The activities feed
+ * is stored newest-logged first, which puts a meeting booked months ahead in
+ * the middle of past interactions.
+ */
+export function byOccurrence<T extends OrganisationActivity>(activities: T[], now: number) {
+  const upcoming = activities
+    .filter((activity) => happenedAt(activity) > now)
+    .sort((a, b) => happenedAt(a) - happenedAt(b))
+  const past = activities
+    .filter((activity) => happenedAt(activity) <= now)
+    .sort((a, b) => happenedAt(b) - happenedAt(a))
+  return { upcoming, past }
+}
+
 /**
  * One line describing an activity — shared by the dashboard's Recent Activity
  * and the profile's Activity Timeline so both say the same thing.

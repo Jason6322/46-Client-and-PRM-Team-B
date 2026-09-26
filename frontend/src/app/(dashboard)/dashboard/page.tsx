@@ -7,14 +7,11 @@ import { listOpportunities } from '@/features/opportunities/actions/opportunitie
 import {
   listOrganisationActivities,
   listOrganisations,
+  listUpcomingMeetings,
 } from '@/features/organisations/actions/organisations.actions'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
 import { describeDue, isDueToday, isOverdue } from '@/features/organisations/followUp'
-import {
-  describeActivity,
-  isLoggedActivity,
-  type OrganisationActivity,
-} from '@/features/organisations/types'
+import { describeActivity, type OrganisationActivity } from '@/features/organisations/types'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 
@@ -57,12 +54,25 @@ export default async function DashboardPage() {
     (opportunity) => opportunity.completedAt === null
   )
 
-  // Activity lives in a subcollection per organisation. Reading every one
-  // would cost a query per organisation, so this covers the most recently
-  // active few — which is what these two panels are about anyway.
+  // Activity lives in a subcollection per organisation. Recent Activity only
+  // needs the most recently active few, so it reads just those in full.
+  // Upcoming meetings can belong to any organisation — a meeting booked with a
+  // quiet one is exactly the kind worth surfacing — so those are queried
+  // across all of them, filtered by date, at about one read each.
   const recentOrganisations = organisations.slice(0, ACTIVITY_ORGANISATION_LIMIT)
-  const activityResults = await Promise.all(
-    recentOrganisations.map((organisation) => listOrganisationActivities(organisation.id))
+  const { from, to } = nextSevenDays()
+  const [activityResults, meetingResult] = await Promise.all([
+    Promise.all(
+      recentOrganisations.map((organisation) => listOrganisationActivities(organisation.id))
+    ),
+    listUpcomingMeetings({
+      organisationIds: organisations.map((organisation) => organisation.id),
+      from,
+      to,
+    }),
+  ])
+  const organisationNames = new Map(
+    organisations.map((organisation) => [organisation.id, organisation.name])
   )
 
   const allActivity: ActivityWithOrganisation[] = activityResults.flatMap((result, index) => {
@@ -82,14 +92,13 @@ export default async function DashboardPage() {
     .sort((a, b) => b.activity.createdAt - a.activity.createdAt)
     .slice(0, 5)
 
-  const { from, to } = nextSevenDays()
-  const upcomingMeetings = allActivity
-    .filter(({ activity }) => {
-      if (!isLoggedActivity(activity) || activity.type !== 'Meeting') return false
-      const when = activity.occurredAt
-      return when !== null && when >= from && when <= to
+  const upcomingMeetings: ActivityWithOrganisation[] = (meetingResult.data ?? []).map(
+    ({ organisationId, activity }) => ({
+      activity,
+      organisationId,
+      organisationName: organisationNames.get(organisationId) ?? 'Unknown organisation',
     })
-    .sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0))
+  )
 
   const withFollowUp = organisations.filter((organisation) => organisation.nextActionDueAt !== null)
   const overdue = withFollowUp.filter((organisation) =>

@@ -20,7 +20,11 @@ import {
   type LogActivityFormValues,
 } from '@/lib/validations/organisation'
 import { cn, formatDate, formatDatetime } from '@/lib/utils'
-import { isLoggedActivity, type OrganisationActivity } from '@/features/organisations/types'
+import {
+  byOccurrence,
+  isLoggedActivity,
+  type OrganisationActivity,
+} from '@/features/organisations/types'
 
 /**
  * Meetings & Activities — the interaction timeline and the form that adds to
@@ -62,7 +66,15 @@ export function MeetingsActivities({
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const loggedAll = activities.filter(isLoggedActivity)
-  const logged = loggedAll.filter((activity) => activity.deletedAt === null)
+  // Read once on mount: "upcoming" only needs to be right to the minute, and a
+  // stable value keeps re-renders from reshuffling the list.
+  const [now] = useState(Date.now)
+  const { upcoming, past } = byOccurrence(
+    loggedAll.filter((activity) => activity.deletedAt === null),
+    now
+  )
+  const logged = [...upcoming, ...past]
+  const upcomingIds = new Set(upcoming.map((activity) => activity.id))
   const archived = loggedAll.filter((activity) => activity.deletedAt !== null)
 
   const setArchived = async (activity: OrganisationActivity, archive: boolean) => {
@@ -171,6 +183,11 @@ export function MeetingsActivities({
                 >
                   {activity.type}
                 </span>
+                {upcomingIds.has(activity.id) && (
+                  <span className="bg-brand-50 text-brand-700 ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold">
+                    Upcoming
+                  </span>
+                )}
                 <p className="mt-2 text-xs text-zinc-500">
                   {formatDate(new Date(activity.occurredAt ?? activity.createdAt))}
                 </p>

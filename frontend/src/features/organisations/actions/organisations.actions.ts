@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { z } from 'zod'
 import { requireAuth } from '@/actions/auth.actions'
+import { idSchema } from '@/lib/validations/common'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   createOrganisationSchema,
@@ -104,37 +106,89 @@ export async function listOrganisationActivities(
       .limit(50)
       .get()
 
-    return {
-      success: true,
-      data: snapshot.docs.map((doc) => {
-        const data = doc.data()
-        const text = (value: unknown) => (typeof value === 'string' ? value : null)
-
-        return {
-          id: doc.id,
-          type: data.type ?? 'stage_change',
-          fromStage: data.fromStage ?? null,
-          toStage: data.toStage ?? null,
-          occurredAt: data.occurredAt instanceof Timestamp ? data.occurredAt.toMillis() : null,
-          attendees: text(data.attendees),
-          agenda: text(data.agenda),
-          notes: text(data.notes),
-          outcome: text(data.outcome),
-          actionItems: text(data.actionItems),
-          nextFollowUp: text(data.nextFollowUp),
-          meetingLink: text(data.meetingLink),
-          documentLinks: Array.isArray(data.documentLinks)
-            ? data.documentLinks.filter((link: unknown): link is string => typeof link === 'string')
-            : [],
-          actorUid: data.actorUid ?? '',
-          actorLabel: text(data.actorLabel),
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
-          deletedAt: data.deletedAt instanceof Timestamp ? data.deletedAt.toMillis() : null,
-        }
-      }),
-    }
+    return { success: true, data: snapshot.docs.map(toActivity) }
   } catch {
     return { success: false, error: 'Failed to load activity' }
+  }
+}
+
+function toActivity(doc: FirebaseFirestore.QueryDocumentSnapshot): OrganisationActivity {
+  const data = doc.data()
+  const text = (value: unknown) => (typeof value === 'string' ? value : null)
+
+  return {
+    id: doc.id,
+    type: data.type ?? 'stage_change',
+    fromStage: data.fromStage ?? null,
+    toStage: data.toStage ?? null,
+    occurredAt: data.occurredAt instanceof Timestamp ? data.occurredAt.toMillis() : null,
+    attendees: text(data.attendees),
+    agenda: text(data.agenda),
+    notes: text(data.notes),
+    outcome: text(data.outcome),
+    actionItems: text(data.actionItems),
+    nextFollowUp: text(data.nextFollowUp),
+    meetingLink: text(data.meetingLink),
+    documentLinks: Array.isArray(data.documentLinks)
+      ? data.documentLinks.filter((link: unknown): link is string => typeof link === 'string')
+      : [],
+    actorUid: data.actorUid ?? '',
+    actorLabel: text(data.actorLabel),
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
+    deletedAt: data.deletedAt instanceof Timestamp ? data.deletedAt.toMillis() : null,
+  }
+}
+
+const upcomingMeetingsSchema = z.object({
+  organisationIds: z.array(idSchema).max(500),
+  from: z.number().int(),
+  to: z.number().int(),
+})
+
+/**
+ * Meetings between `from` and `to` (epoch millis) across the given
+ * organisations, soonest first — for the dashboard's upcoming meetings.
+ *
+ * One query per organisation, filtered on occurredAt alone so the automatic
+ * single-field index serves it; type and archived are filtered here, which
+ * avoids a composite index. Firestore bills a query that matches nothing as
+ * one read, so this costs about one read per organisation.
+ */
+export async function listUpcomingMeetings(
+  input: z.input<typeof upcomingMeetingsSchema>
+): Promise<ActionResult<{ organisationId: string; activity: OrganisationActivity }[]>> {
+  await requireAuth()
+
+  const parsed = upcomingMeetingsSchema.safeParse(input)
+  if (!parsed.success) return { success: false, error: 'Invalid meeting range' }
+  const { organisationIds, from, to } = parsed.data
+
+  try {
+    const snapshots = await Promise.all(
+      organisationIds.map((organisationId) =>
+        adminDb
+          .collection(COLLECTION)
+          .doc(organisationId)
+          .collection(ACTIVITIES)
+          .where('occurredAt', '>=', Timestamp.fromMillis(from))
+          .where('occurredAt', '<=', Timestamp.fromMillis(to))
+          .get()
+      )
+    )
+
+    const meetings = snapshots.flatMap((snapshot, index) =>
+      snapshot.docs
+        .map(toActivity)
+        .filter((activity) => activity.type === 'Meeting' && activity.deletedAt === null)
+        .map((activity) => ({ organisationId: organisationIds[index]!, activity }))
+    )
+
+    return {
+      success: true,
+      data: meetings.sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0)),
+    }
+  } catch {
+    return { success: false, error: 'Failed to load upcoming meetings' }
   }
 }
 
