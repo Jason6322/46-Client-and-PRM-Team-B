@@ -62,7 +62,12 @@ export const createOrganisationSchema = z.object({
   country: z.string().trim().min(1, 'Country is required').max(100),
   website: webUrl.nullable().or(z.literal('').transform(() => null)),
   relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
-  tags: z.array(z.string().trim().min(1)).max(20).default([]),
+  // "test, test" would store the tag twice and render duplicate React keys.
+  tags: z
+    .array(z.string().trim().min(1))
+    .max(20)
+    .transform((tags) => [...new Set(tags)])
+    .default([]),
   pipelineStage: z.enum(PIPELINE_STAGES).default(DEFAULT_PIPELINE_STAGE),
   relationshipStatus: z
     .enum(RELATIONSHIP_STATUSES, { message: 'Select a relationship status' })

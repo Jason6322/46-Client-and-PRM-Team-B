@@ -20,3 +20,12 @@ describe('organisation website', () => {
     expect(formWebsite.safeParse('').success).toBe(true)
   })
 })
+
+describe('organisation tags', () => {
+  it('stores each tag once', () => {
+    expect(updateOrganisationSchema.parse({ tags: ['test', 'test', 'one'] }).tags).toEqual([
+      'test',
+      'one',
+    ])
+  })
+})

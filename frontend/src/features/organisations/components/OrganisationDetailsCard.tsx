@@ -53,7 +53,8 @@ export function OrganisationDetailsCard({
         <p className={labelClass}>Tags</p>
         {tags && tags.length > 0 ? (
           <ul className="mt-2 flex flex-wrap gap-2">
-            {tags.map((tag) => (
+            {/* Records saved before tags were de-duplicated can still hold repeats. */}
+            {[...new Set(tags)].map((tag) => (
               <li key={tag} className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600">
                 {tag}
               </li>

@@ -100,7 +100,8 @@ export function LinkedOrganisationSummary({
           <dd className="mt-1">
             {organisation.tags.length > 0 ? (
               <ul className="flex flex-wrap gap-2">
-                {organisation.tags.map((tag) => (
+                {/* Records saved before tags were de-duplicated can still hold repeats. */}
+                {[...new Set(organisation.tags)].map((tag) => (
                   <li
                     key={tag}
                     className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600"
