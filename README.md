@@ -7,9 +7,9 @@
 | | |
 |-|-|
 | **Frontend** | Next.js 16 (App Router) · React 19 · TypeScript 5 · Tailwind v4 |
-| **Backend** | Firebase Cloud Functions v2 · Express (single "fat lambda") |
+| **Backend** | Next.js Server Actions + Route Handlers on Vercel (Firebase Admin SDK) |
 | **Database / Auth** | Firestore · Firebase Authentication |
-| **Testing** | Vitest · Testing Library · supertest |
+| **Testing** | Vitest · Testing Library |
 
 ## Getting Started
 
