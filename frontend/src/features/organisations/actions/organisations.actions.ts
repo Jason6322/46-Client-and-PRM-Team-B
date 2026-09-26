@@ -6,6 +6,7 @@ import { requireAuth } from '@/actions/auth.actions'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   createOrganisationSchema,
+  logActivitySchema,
   nextActionSchema,
   pipelineStageSchema,
   relationshipManagementSchema,
@@ -107,19 +108,80 @@ export async function listOrganisationActivities(
       success: true,
       data: snapshot.docs.map((doc) => {
         const data = doc.data()
+        const text = (value: unknown) => (typeof value === 'string' ? value : null)
+
         return {
           id: doc.id,
-          type: 'stage_change',
+          type: data.type ?? 'stage_change',
           fromStage: data.fromStage ?? null,
-          toStage: data.toStage,
+          toStage: data.toStage ?? null,
+          occurredAt: data.occurredAt instanceof Timestamp ? data.occurredAt.toMillis() : null,
+          attendees: text(data.attendees),
+          agenda: text(data.agenda),
+          notes: text(data.notes),
+          outcome: text(data.outcome),
+          actionItems: text(data.actionItems),
+          nextFollowUp: text(data.nextFollowUp),
+          meetingLink: text(data.meetingLink),
+          documentLinks: Array.isArray(data.documentLinks)
+            ? data.documentLinks.filter((link: unknown): link is string => typeof link === 'string')
+            : [],
           actorUid: data.actorUid ?? '',
-          actorLabel: typeof data.actorLabel === 'string' ? data.actorLabel : null,
+          actorLabel: text(data.actorLabel),
           createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : Date.now(),
         }
       }),
     }
   } catch {
     return { success: false, error: 'Failed to load activity' }
+  }
+}
+
+/**
+ * Log a meeting, call, email or note against an organisation.
+ *
+ * Writes to the same activities subcollection as stage changes, so the
+ * interaction timeline and the stage history are one ordered record rather
+ * than two stores that have to be merged.
+ */
+export async function logActivity(
+  organisationId: string,
+  input: unknown
+): Promise<ActionResult<{ id: string }>> {
+  const session = await requireAuth()
+
+  const parsed = logActivitySchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid activity' }
+  }
+
+  try {
+    const { occurredAt, ...fields } = parsed.data
+    const ref = await adminDb
+      .collection(COLLECTION)
+      .doc(organisationId)
+      .collection(ACTIVITIES)
+      .add({
+        ...fields,
+        occurredAt: Timestamp.fromDate(new Date(occurredAt)),
+        actorUid: session.uid,
+        actorLabel: session.name ?? session.email ?? null,
+        createdAt: FieldValue.serverTimestamp(),
+      })
+
+    // Logging an interaction is activity on the organisation, so the list
+    // ordering and the "Last Activity" column reflect it.
+    await adminDb.collection(COLLECTION).doc(organisationId).update({
+      lastActivityAt: FieldValue.serverTimestamp(),
+    })
+
+    revalidatePath('/organisations')
+    revalidatePath(`/organisations/${organisationId}`)
+    revalidatePath('/meetings')
+    revalidatePath(`/meetings/${organisationId}`)
+    return { success: true, data: { id: ref.id } }
+  } catch {
+    return { success: false, error: 'Failed to log activity' }
   }
 }
 

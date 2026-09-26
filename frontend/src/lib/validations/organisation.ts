@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   DEFAULT_PIPELINE_STAGE,
+  LOGGED_ACTIVITY_TYPES,
   ORGANISATION_TYPES,
   PIPELINE_STAGES,
   RELATIONSHIP_STATUSES,
@@ -146,6 +147,89 @@ export function toRelationshipManagementInput(values: RelationshipManagementForm
     relationshipNotes: emptyToNull(values.relationshipNotes),
     relationshipOwner: values.relationshipOwner.trim(),
     nextAction: emptyToNull(values.nextAction),
+  }
+}
+
+/**
+ * Logging a meeting, call, email or note.
+ *
+ * `occurredAt` is when the interaction happened, which is not the same as when
+ * it was recorded — people log a meeting the next morning. It comes from a
+ * datetime-local input, so it has no timezone and is read in the viewer's own.
+ */
+/**
+ * A link that is safe to render as an anchor.
+ *
+ * z.string().url() accepts javascript: and data: URLs, which become an XSS
+ * vector the moment they are rendered as a clickable link, so the protocol is
+ * checked explicitly.
+ */
+const webUrl = z
+  .string()
+  .trim()
+  .url('Enter a valid link')
+  .refine((value) => /^https?:\/\//i.test(value), 'Links must start with http:// or https://')
+
+export const logActivitySchema = z.object({
+  type: z.enum(LOGGED_ACTIVITY_TYPES, { message: 'Select an activity type' }),
+  occurredAt: z
+    .string()
+    .trim()
+    .min(1, 'Enter when it happened')
+    .refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date and time'),
+  attendees: optionalText,
+  agenda: optionalText,
+  notes: optionalText,
+  outcome: optionalText,
+  actionItems: optionalText,
+  nextFollowUp: optionalText,
+  meetingLink: webUrl.nullable().or(z.literal('').transform(() => null)),
+  documentLinks: z.array(webUrl).max(10, 'Up to 10 document links').default([]),
+})
+
+/** Form-shaped counterpart — every input hands back a string. */
+export const logActivityFormSchema = z.object({
+  type: z.enum(LOGGED_ACTIVITY_TYPES, { message: 'Select an activity type' }),
+  occurredAt: z.string().min(1, 'Enter when it happened'),
+  attendees: z.string().trim().max(300),
+  agenda: z.string().trim().max(1000),
+  notes: z.string().trim().max(5000),
+  outcome: z.string().trim().max(1000),
+  actionItems: z.string().trim().max(1000),
+  nextFollowUp: z.string().trim().max(300),
+  meetingLink: z.union([webUrl, z.literal('')]),
+  // One link per line, so a title with spaces can never be mistaken for two.
+  documentLinks: z
+    .string()
+    .trim()
+    .refine(
+      (value) => splitLines(value).every((line) => webUrl.safeParse(line).success),
+      'Each line must be a link starting with http:// or https://'
+    )
+    .refine((value) => splitLines(value).length <= 10, 'Up to 10 document links'),
+})
+
+function splitLines(value: string) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+export type LogActivityFormValues = z.infer<typeof logActivityFormSchema>
+
+export function toLogActivityInput(values: LogActivityFormValues) {
+  return {
+    type: values.type,
+    occurredAt: values.occurredAt,
+    attendees: emptyToNull(values.attendees),
+    agenda: emptyToNull(values.agenda),
+    notes: emptyToNull(values.notes),
+    outcome: emptyToNull(values.outcome),
+    actionItems: emptyToNull(values.actionItems),
+    nextFollowUp: emptyToNull(values.nextFollowUp),
+    meetingLink: emptyToNull(values.meetingLink),
+    documentLinks: splitLines(values.documentLinks),
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Organisation } from '@/types/firestore'
-import type { PipelineStage } from '@/features/organisations/constants'
+import type { LoggedActivityType, PipelineStage } from '@/features/organisations/constants'
 
 /**
  * An entry in `organisations/{id}/activities`.
@@ -10,13 +10,37 @@ import type { PipelineStage } from '@/features/organisations/constants'
  */
 export interface OrganisationActivity {
   id: string
-  type: 'stage_change'
+  /** `stage_change` is written by the app; the rest are logged by hand. */
+  type: 'stage_change' | LoggedActivityType
+
+  /** Stage changes only. */
   fromStage: PipelineStage | null
-  toStage: PipelineStage
-  /** Who made the change: their display name or email, and their uid. */
+  toStage: PipelineStage | null
+
+  /** Logged activities only. When the interaction happened, not when it was recorded. */
+  occurredAt: number | null
+  attendees: string | null
+  agenda: string | null
+  notes: string | null
+  outcome: string | null
+  actionItems: string | null
+  nextFollowUp: string | null
+  /** Video call or dial-in link for the meeting. */
+  meetingLink: string | null
+  /** Agendas, minutes, contracts — anything the interaction refers to. */
+  documentLinks: string[]
+
+  /** Who recorded it: their display name or email, and their uid. */
   actorUid: string
   actorLabel: string | null
   createdAt: number
+}
+
+/** Narrowing helper — a hand-logged interaction rather than a stage change. */
+export function isLoggedActivity(
+  activity: OrganisationActivity
+): activity is OrganisationActivity & { type: LoggedActivityType } {
+  return activity.type !== 'stage_change'
 }
 
 /**

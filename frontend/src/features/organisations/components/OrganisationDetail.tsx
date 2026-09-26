@@ -8,6 +8,7 @@ import { ContactsCard } from './ContactsCard'
 import { OrganisationDetailsCard } from './OrganisationDetailsCard'
 import { NextActionEditor } from './NextActionEditor'
 import { PipelineStageSelect } from './PipelineStageSelect'
+import { MeetingsActivities } from './MeetingsActivities'
 import { PipelineTab } from './PipelineTab'
 import { RelationshipManagementForm } from './RelationshipManagementForm'
 import type { OrganisationActivity, OrganisationListItem } from '@/features/organisations/types'
@@ -157,6 +158,8 @@ export function OrganisationDetail({
         <RelationshipManagementForm organisation={organisation} />
       ) : activeTab === 'Pipeline' ? (
         <PipelineTab organisation={organisation} activities={activities} />
+      ) : activeTab === 'Meetings & Activities' ? (
+        <MeetingsActivities organisationId={organisation.id} activities={activities} />
       ) : (
         <Card>
           <EmptyState title={`${activeTab} is not built yet`} />

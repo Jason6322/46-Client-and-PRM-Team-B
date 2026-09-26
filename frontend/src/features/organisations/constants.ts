@@ -11,6 +11,25 @@ export const ORGANISATION_TYPES = ['Industry Partner', 'Client', 'Collaborator']
 export type OrganisationType = (typeof ORGANISATION_TYPES)[number]
 
 /**
+ * Activity types logged by hand on the Meetings & Activities screen.
+ *
+ * Distinct from the automatic `stage_change` entries: these are interactions
+ * someone records, those are written by the app when a stage moves.
+ */
+export const LOGGED_ACTIVITY_TYPES = ['Meeting', 'Call', 'Email', 'Note', 'Other'] as const
+
+export type LoggedActivityType = (typeof LOGGED_ACTIVITY_TYPES)[number]
+
+/** Badge colour per type, matching the wireframe's timeline. */
+export const ACTIVITY_TYPE_CLASSES: Record<LoggedActivityType, string> = {
+  Meeting: 'bg-brand-600 text-white',
+  Call: 'bg-emerald-600 text-white',
+  Email: 'bg-amber-500 text-white',
+  Note: 'bg-orange-500 text-white',
+  Other: 'bg-zinc-500 text-white',
+}
+
+/**
  * Relationship status — the headline state, shown beside the pipeline stage
  * as "Negotiation · Active". Only these two appear in the approved wireframe.
  * The BRD has not settled the full list, so expect this to grow.

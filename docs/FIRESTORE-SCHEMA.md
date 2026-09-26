@@ -97,4 +97,38 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 
 ---
 
+## `activities` subcollection
+
+**Path:** `/organisations/{organisationId}/activities/{activityId}`
+**Access:** Same as the parent organisation. Rules are matched by path, not inherited from the parent, so this needs its own `match` block — **not written yet**.
+
+Two kinds of entry share this subcollection, distinguished by `type`, so the interaction timeline and the stage history are one ordered record rather than two stores to merge.
+
+| Field           | Type                                                                    | Description                                                                               |
+| --------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `type`          | `'stage_change' \| 'Meeting' \| 'Call' \| 'Email' \| 'Note' \| 'Other'` | `stage_change` is written by the app; the rest are logged by hand                         |
+| `fromStage`     | `PipelineStage \| null`                                                 | Stage changes only; `null` for the first entry                                            |
+| `toStage`       | `PipelineStage \| null`                                                 | Stage changes only                                                                        |
+| `occurredAt`    | `Timestamp \| null`                                                     | Logged activities only — when the interaction happened, which is not when it was recorded |
+| `attendees`     | `string \| null`                                                        | Logged activities only                                                                    |
+| `agenda`        | `string \| null`                                                        | Logged activities only                                                                    |
+| `notes`         | `string \| null`                                                        | Notes / minutes                                                                           |
+| `outcome`       | `string \| null`                                                        | Logged activities only                                                                    |
+| `actionItems`   | `string \| null`                                                        | Action items and who is responsible                                                       |
+| `nextFollowUp`  | `string \| null`                                                        | Free text; distinct from the organisation's `nextAction`                                  |
+| `meetingLink`   | `string \| null`                                                        | Video call or dial-in link; `http`/`https` only                                           |
+| `documentLinks` | `string[]`                                                              | Up to 10; `http`/`https` only                                                             |
+| `actorUid`      | `string`                                                                | Who recorded it                                                                           |
+| `actorLabel`    | `string \| null`                                                        | Their display name or email at the time                                                   |
+| `createdAt`     | `Timestamp`                                                             | When the entry was written                                                                |
+
+Links are restricted to `http`/`https` in validation: `z.string().url()` accepts `javascript:` and `data:` URLs, which become an XSS vector once rendered as an anchor.
+
+**Written by:** `changePipelineStage()`, `saveRelationshipManagement()` when advancing a stage, and `logActivity()`.
+**Read by:** `listOrganisationActivities()` — newest first, capped at 50.
+
+Entries are never edited or deleted; there is no UI for either.
+
+---
+
 <!-- Add new collection schemas below using the /firebase-collection skill -->
