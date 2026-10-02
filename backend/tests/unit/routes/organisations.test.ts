@@ -43,6 +43,8 @@ const sampleOrganisation: Organisation = {
     nextActionDueAt: '2026-09-02T00:00:00.000Z',
     relationshipNotes: 'Prefers written updates over calls.',
   },
+  stageHistory: [],
+  
   createdAt: '2026-09-16T00:00:00.000Z',
   createdBy: 'test-uid',
   updatedAt: '2026-09-16T00:00:00.000Z',
@@ -259,5 +261,104 @@ describe('PATCH /api/organisations/:id - relationship fields', () => {
       .send({ relationship: { leadScore: 150 } })
 
     expect(res.status).toBe(400)
+  })
+})
+describe('POST /api/organisations/:id/stage', () => {
+  it('moves the organisation to a new stage and records the transition', async () => {
+    const { docRef } = mockFirestore(sampleOrganisation)
+
+    const res = await request(app)
+      .post('/api/organisations/org-1/stage')
+      .set('Authorization', TOKEN)
+      .send({ toStage: 'Partnership', note: 'Contract signed.' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.pipelineStage).toBe('Partnership')
+    expect(res.body.stageHistory).toHaveLength(1)
+    expect(res.body.stageHistory[0].fromStage).toBe('Negotiation')
+    expect(res.body.stageHistory[0].toStage).toBe('Partnership')
+    expect(res.body.stageHistory[0].note).toBe('Contract signed.')
+    expect(res.body.stageHistory[0].changedBy).toBe('test-uid')
+    expect(docRef.set).toHaveBeenCalledOnce()
+  })
+
+  it('assigns an owner and next action on the transition', async () => {
+    mockFirestore(sampleOrganisation)
+
+    const res = await request(app)
+      .post('/api/organisations/org-1/stage')
+      .set('Authorization', TOKEN)
+      .send({
+        toStage: 'Proposal',
+        assignedOwner: 'T. Ngo',
+        nextAction: 'Draft the proposal document',
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.body.relationshipOwner).toBe('T. Ngo')
+    expect(res.body.stageHistory[0].assignedOwner).toBe('T. Ngo')
+    expect(res.body.stageHistory[0].nextAction).toBe('Draft the proposal document')
+  })
+
+  //history is append only so earlier transitions must survive a later move
+
+  it('keeps earlier transitions when moving again', async () => {
+    mockFirestore({
+      ...sampleOrganisation,
+      stageHistory: [
+        {
+          fromStage: 'Proposal',
+          toStage: 'Negotiation',
+          changedBy: 'test-uid',
+          changedAt: '2026-09-20T00:00:00.000Z',
+          assignedOwner: 'D. Zytsel',
+          note: 'Client asked to renegotiate terms.',
+          nextAction: null,
+        },
+      ],
+    })
+
+    const res = await request(app)
+      .post('/api/organisations/org-1/stage')
+      .set('Authorization', TOKEN)
+      .send({ toStage: 'Partnership' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.stageHistory).toHaveLength(2)
+    expect(res.body.stageHistory[0].toStage).toBe('Negotiation')
+    expect(res.body.stageHistory[1].toStage).toBe('Partnership')
+  })
+
+  it('rejects a stage that is not one of the 12', async () => {
+    mockFirestore(sampleOrganisation)
+
+    const res = await request(app)
+      .post('/api/organisations/org-1/stage')
+      .set('Authorization', TOKEN)
+      .send({ toStage: 'Made Up Stage' })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 409 when already at that stage', async () => {
+    mockFirestore(sampleOrganisation)
+
+    const res = await request(app)
+      .post('/api/organisations/org-1/stage')
+      .set('Authorization', TOKEN)
+      .send({ toStage: 'Negotiation' })
+
+    expect(res.status).toBe(409)
+  })
+
+  it('returns 404 when the organisation is archived', async () => {
+    mockFirestore({ ...sampleOrganisation, deletedAt: '2026-09-16T01:00:00.000Z' })
+
+    const res = await request(app)
+      .post('/api/organisations/org-1/stage')
+      .set('Authorization', TOKEN)
+      .send({ toStage: 'Partnership' })
+
+    expect(res.status).toBe(404)
   })
 })
