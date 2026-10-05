@@ -1,7 +1,10 @@
 version: 2
 updates:
+  # One entry at the workspace root: pnpm-lock.yaml lives here, and Dependabot
+  # only updates the lockfile when it can see it. Pointing at /frontend or
+  # /backend bumps package.json alone, which fails `pnpm install` on CI.
   - package-ecosystem: npm
-    directory: /backend
+    directory: /
     schedule:
       interval: weekly
       day: monday
@@ -10,18 +13,11 @@ updates:
         dependency-type: production
       dev-dependencies:
         dependency-type: development
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: npm
-    directory: /frontend
-    schedule:
-      interval: weekly
-      day: monday
-    groups:
-      production-dependencies:
-        dependency-type: production
-      dev-dependencies:
-        dependency-type: development
+    # Major upgrades (zod 4, TypeScript 7, ...) need code changes — do them by
+    # hand on a feature branch rather than in a weekly grouped bump.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
