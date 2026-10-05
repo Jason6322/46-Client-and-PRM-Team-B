@@ -47,7 +47,7 @@ pnpm run dev              # http://localhost:3000
 
 ### Environment variables
 
-The root **`.env` is the single source of truth**. `pnpm run env:sync` generates `frontend/.env.local` and `backend/.env` from it, and runs automatically before `pnpm run dev` — never edit those two files by hand. `.env` is gitignored; never commit it.
+The root **`.env` is the single source of truth**. `pnpm run env:sync` generates `frontend/.env.local` from it, and runs automatically before `pnpm run dev` — never edit that file by hand. `.env` is gitignored; never commit it.
 
 Values come from **Firebase Console → Project settings**:
 
@@ -64,16 +64,14 @@ Ask the team for the `NEXT_PUBLIC_FIREBASE_*` values — they're safe to share, 
 
 ### Commands
 
-| Command                   | What it does                               |
-| ------------------------- | ------------------------------------------ |
-| `pnpm run dev`            | Frontend dev server on :3000               |
-| `pnpm run build`          | Production build (frontend + backend)      |
-| `pnpm run test`           | Backend unit tests (mocked Firebase Admin) |
-| `pnpm run test:component` | Frontend unit tests                        |
-| `pnpm run test:all`       | Both suites                                |
-| `pnpm run lint`           | ESLint across all packages                 |
-| `pnpm run typecheck`      | TypeScript check across all packages       |
-| `pnpm run validate`       | Check for unreplaced template placeholders |
+| Command              | What it does                               |
+| -------------------- | ------------------------------------------ |
+| `pnpm run dev`       | Frontend dev server on :3000               |
+| `pnpm run build`     | Production build                           |
+| `pnpm run test`      | Unit tests (mocked Firebase)               |
+| `pnpm run lint`      | ESLint across all packages                 |
+| `pnpm run typecheck` | TypeScript check across all packages       |
+| `pnpm run validate`  | Check for unreplaced template placeholders |
 
 ### Running the tests
 
@@ -82,21 +80,18 @@ The app's tests use **Vitest** and live in `frontend/tests/unit/`, mirroring `fr
 ```bash
 pnpm install                                   # once, if you haven't already
 
-pnpm run test:component                        # run the frontend tests once
+pnpm run test                                  # run the tests once
 pnpm --filter frontend test:watch              # re-run on every save while you work
 pnpm --filter frontend test:coverage           # with a coverage report (frontend/coverage/index.html)
 pnpm --filter frontend test tests/unit/lib     # only the tests under one folder or file
-pnpm run test:all                              # frontend + the legacy backend suite
 ```
 
 A passing run ends with a summary like `Test Files 6 passed` and `Tests 19 passed`. A failure names the file and test, and shows what was expected against what was received.
 
-`pnpm run test` runs the tests for the old Express `backend/` only. That backend is no longer used — the app runs entirely on Next.js — but its tests still run in CI until it is removed.
-
 **Before pushing**, run the same checks as CI:
 
 ```bash
-pnpm run lint && pnpm run typecheck && pnpm run test:all
+pnpm run lint && pnpm run typecheck && pnpm run test
 ```
 
 New tests go in `frontend/tests/unit/`, in the folder matching the source file — for example, tests for `src/lib/utils.ts` are in `tests/unit/lib/utils.test.ts`.
@@ -106,7 +101,7 @@ New tests go in `frontend/tests/unit/`, in the folder matching the source file �
 1. Branch from `main` — `feature/*` for new work, `hotfix/*` for urgent fixes. Never commit to `main` directly.
 2. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`). The `commit-msg` hook rejects anything else, and a `pre-commit` hook runs lint + format.
 3. Open a PR into `main` and fill in the PR template.
-4. CI must be green before merge — lint + typecheck, frontend tests, backend tests, and a dependency vulnerability audit all run on every PR.
+4. CI must be green before merge — lint + typecheck, unit tests, and a dependency vulnerability audit all run on every PR.
 
 More detail in [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) and [docs/CI-CD.md](docs/CI-CD.md). New to the codebase? Start with [docs/GUIDE.md](docs/GUIDE.md).
 
@@ -124,19 +119,13 @@ More detail in [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md) and [docs/CI-CD.md](
 │       ├── providers/ React context providers
 │       ├── actions/   Next.js Server Actions
 │       └── types/     TypeScript type definitions
-├── backend/           Cloud Functions v2 — Express fat-lambda
-│   └── src/
-│       ├── app.ts     Express app factory
-│       ├── routes/    One file per resource
-│       ├── middleware/ auth (ID token → req.user), errorHandler (RFC 9457)
-│       └── lib/       firebase (Admin singleton), errors (HttpError), zodConverter
 ├── firebase/          Firestore rules, indexes
 └── docs/              Reference docs
 ```
 
 ## Security
 
-Security is enforced in independent layers — HTTP hardening (helmet/CORS/rate limits), token + session-cookie auth, Zod input validation, default-deny Firestore rules, and CI scanning. See [docs/SECURITY.md](docs/SECURITY.md).
+Security is enforced in independent layers — HTTP security headers (`next.config.ts`), token + session-cookie auth, Zod input validation, default-deny Firestore rules, and CI scanning. See [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Deployment
 

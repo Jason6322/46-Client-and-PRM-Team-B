@@ -12,10 +12,10 @@ Audit staged changes for security issues and code pattern violations.
 
 ### Authentication & Authorization
 
-- All Cloud Functions routes under `/api/` are protected by `authMiddleware`
+- API Route Handlers under `frontend/src/app/api/` call `verifyBearer(req)` and return `unauthorized()` when it is null
 - Unauthenticated endpoints are explicitly intentional (e.g. `GET /api/health`)
 - Server Actions call `requireAuth()` before accessing any Firestore data
-- Firebase ID tokens verified via `adminAuth.verifyIdToken()` in middleware, not client-side
+- Firebase ID tokens verified server-side via `verifyBearer()` (`adminAuth.verifyIdToken()`), not client-side
 - Session cookies use `adminAuth.verifySessionCookie()` in Server Actions, never trust client claims
 
 ### Firestore Security
@@ -28,8 +28,7 @@ Audit staged changes for security issues and code pattern violations.
 
 ### Input Validation
 
-- All API route handlers validate `req.body` with Zod `.parse()` or `.safeParse()` before use
-- No raw `req.body.fieldName` access without a preceding Zod parse
+- All API Route Handlers validate `await req.json()` with Zod `.safeParse()` before use
 - All Server Actions use Zod to validate form data before Firestore writes
 - `enum` or `as const` for fixed value sets — never raw strings compared directly
 
@@ -39,7 +38,7 @@ Audit staged changes for security issues and code pattern violations.
 - No `.env.local` or `.env` committed — only `.env.example`
 - `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` and other secrets are server-only — never `NEXT_PUBLIC_` prefix
 - `firebase/admin.ts` imports `server-only` at the top
-- GCP Secret Manager used for production secrets (not environment variables in functions)
+- Production secrets live in Vercel environment variables, never in source
 
 ### Frontend Security
 
@@ -50,10 +49,10 @@ Audit staged changes for security issues and code pattern violations.
 
 ### Error Handling
 
-- Route handlers use `next(error)` — never inline `res.status(500).json(...)`
+- API Route Handlers return errors via `problem()` / `unauthorized()` from `@/lib/api/problem` (RFC 9457)
 - No stack traces or internal error messages exposed to the client
-- `HttpError` (from `backend/src/lib/errors.ts`) with a safe `detail` is what reaches the error handler
-- 400/401/403/404 errors use the appropriate `HttpError` helper (not 500 for everything)
+- Server Actions return `{ success: false, error }` with a safe message — they never throw raw errors to the client
+- 400/401/403/404 errors use the matching status (not 500 for everything)
 
 ## Code Pattern Checklist
 
@@ -64,14 +63,6 @@ Audit staged changes for security issues and code pattern violations.
 - `@/lib/firebase/admin` (server-only) never imported in a Client Component
 - Server Actions return `ActionResult<T>`: `{ success: boolean, error?: string, data?: T }`
 - `@/` alias used instead of relative paths deeper than one level
-
-### Backend
-
-- New routes registered in `backend/src/routes/index.ts`, not inline in `index.ts`
-- Auth middleware applied at router level (in `app.ts`), not duplicated per-route
-- Errors created via `HttpError` static helpers from `src/lib/errors.ts` and passed to `next()`
-- Firebase Admin imported only from `src/lib/firebase.ts` (the conventions test enforces this)
-- Authenticated user accessed via `(req as AuthenticatedRequest).user`, scoped queries use `user.uid`
 
 ### TypeScript
 
@@ -89,4 +80,4 @@ Audit staged changes for security issues and code pattern violations.
 6. Categorize findings as **Security** or **Pattern**
 7. Suggest the correct fix for each issue
 
-See `docs/SECURITY.md` for the full threat model and `docs/BACKEND.md` for architecture rules.
+See `docs/SECURITY.md` for the full threat model and `docs/ARCHITECTURE.md` for architecture rules.

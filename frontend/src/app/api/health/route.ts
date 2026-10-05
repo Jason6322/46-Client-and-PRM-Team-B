@@ -8,10 +8,6 @@ export const dynamic = 'force-dynamic'
  * GET /api/health
  * Returns service health status, including a live Firestore connectivity
  * check. No auth required.
- *
- * Port of `backend/src/routes/health.ts` — same response shape, served by
- * Vercel so it is reachable on the production domain without Cloud Functions.
- * Keep the two in step.
  */
 export async function GET() {
   const base = {

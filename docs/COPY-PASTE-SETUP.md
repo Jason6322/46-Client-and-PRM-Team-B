@@ -11,10 +11,10 @@ through building an actual feature, including git branching and committing. Do t
 
 ## What you need installed
 
-| Tool | Check you have it | Get it |
-|------|--------------------|--------|
-| Node.js 22 or newer | `node --version` | [nodejs.org](https://nodejs.org) |
-| pnpm | `pnpm --version` | `npm install -g pnpm` |
+| Tool                | Check you have it | Get it                           |
+| ------------------- | ----------------- | -------------------------------- |
+| Node.js 22 or newer | `node --version`  | [nodejs.org](https://nodejs.org) |
+| pnpm                | `pnpm --version`  | `npm install -g pnpm`            |
 
 That's the whole list. No Docker, no Firebase CLI install, no database to run locally — the app
 always talks to a real (free) Firebase project.
@@ -86,7 +86,7 @@ covers everything this boilerplate uses.
      storageBucket: "my-capstone-app-a1b2c.firebasestorage.app",
      messagingSenderId: "123456789",
      appId: "1:123456789:web:abcdef",
-     measurementId: "G-XXXXXXX"
+     measurementId: "G-XXXXXXX",
    };
    ```
 
@@ -97,7 +97,7 @@ boilerplate doesn't use Firebase Storage.)
 
 ## Step 4 — Get your service account key
 
-This is a **server-only secret** — it lets the backend read and write Firestore directly. Never
+This is a **server-only secret** — it lets the server (Server Actions) read and write Firestore directly. Never
 commit it, never share it.
 
 1. Still in **Project settings**, click the **Service accounts** tab.
@@ -125,19 +125,19 @@ commit it, never share it.
 
 Open the root `.env` file (created in Step 1) in your code editor. Fill in each value:
 
-| Variable | Where it comes from |
-|----------|---------------------|
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | The project ID from Step 2 (e.g. `my-capstone-app-a1b2c`) |
-| `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` | The long string from Step 4 |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | `apiKey` from Step 3 |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `authDomain` from Step 3 |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` from Step 3 |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | `appId` from Step 3 |
-| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | `measurementId` from Step 3 (leave blank if you skipped Analytics) |
-| `NEXT_PUBLIC_APP_URL` | Leave as `http://localhost:3000` |
-| `NEXT_PUBLIC_APP_NAME` | Anything — this is what shows in the browser tab |
+| Variable                                   | Where it comes from                                                |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID`          | The project ID from Step 2 (e.g. `my-capstone-app-a1b2c`)          |
+| `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64`      | The long string from Step 4                                        |
+| `NEXT_PUBLIC_FIREBASE_API_KEY`             | `apiKey` from Step 3                                               |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`         | `authDomain` from Step 3                                           |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` from Step 3                                    |
+| `NEXT_PUBLIC_FIREBASE_APP_ID`              | `appId` from Step 3                                                |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`      | `measurementId` from Step 3 (leave blank if you skipped Analytics) |
+| `NEXT_PUBLIC_APP_URL`                      | Leave as `http://localhost:3000`                                   |
+| `NEXT_PUBLIC_APP_NAME`                     | Anything — this is what shows in the browser tab                   |
 
-Every other line in `.env` (`CORS_ORIGIN`, `PORT`, `STITCH_API_KEY`) can stay empty.
+Every other line in `.env` (`STITCH_API_KEY`) can stay empty.
 
 ## Step 6 — Set the project ID in `.firebaserc`
 
@@ -159,8 +159,8 @@ pnpm run env:sync
 pnpm run dev
 ```
 
-`env:sync` copies your `.env` values into `frontend/.env.local` and `backend/.env` (generated
-files — never edit those two directly; always edit the root `.env` and re-run `env:sync`, or just
+`env:sync` copies your `.env` values into `frontend/.env.local` (a generated
+file — never edit it directly; always edit the root `.env` and re-run `env:sync`, or just
 restart `pnpm run dev`, which syncs automatically).
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -182,11 +182,11 @@ Firestore write → protected page. You're ready for
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `auth/invalid-api-key` on startup | A `NEXT_PUBLIC_FIREBASE_*` value in `.env` is empty or wrong. Fix it, run `pnpm run env:sync`, restart `pnpm run dev`. |
-| `Invalid project id: REPLACE_WITH_...` | You skipped Step 6 — set the real project id in `.firebaserc`. |
-| Changed `.env`, nothing happened | `NEXT_PUBLIC_*` values are baked in when the dev server starts — restart `pnpm run dev` (it re-syncs automatically). |
-| Edited `frontend/.env.local` or `backend/.env` directly | Those are generated — edits get overwritten. Change the root `.env` instead. |
-| `'next' is not recognized` / `Command "next" not found` | Run `pnpm install` from the **repo root**, not from `frontend/`. |
-| Sign-up fails silently | Check Firebase console → Authentication → Sign-in method — make sure Email/Password is enabled (Step 2). |
+| Symptom                                                 | Fix                                                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `auth/invalid-api-key` on startup                       | A `NEXT_PUBLIC_FIREBASE_*` value in `.env` is empty or wrong. Fix it, run `pnpm run env:sync`, restart `pnpm run dev`. |
+| `Invalid project id: REPLACE_WITH_...`                  | You skipped Step 6 — set the real project id in `.firebaserc`.                                                         |
+| Changed `.env`, nothing happened                        | `NEXT_PUBLIC_*` values are baked in when the dev server starts — restart `pnpm run dev` (it re-syncs automatically).   |
+| Edited `frontend/.env.local` directly                   | It's generated — edits get overwritten. Change the root `.env` instead.                                                |
+| `'next' is not recognized` / `Command "next" not found` | Run `pnpm install` from the **repo root**, not from `frontend/`.                                                       |
+| Sign-up fails silently                                  | Check Firebase console → Authentication → Sign-in method — make sure Email/Password is enabled (Step 2).               |

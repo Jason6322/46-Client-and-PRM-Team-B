@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
  * GET /api/me
  * Returns the authenticated caller's identity.
  *
- * Port of `backend/src/routes/me.ts`. Requires `Authorization: Bearer <ID token>`.
+ * Requires `Authorization: Bearer <ID token>`.
  */
 export async function GET(req: NextRequest) {
   const user = await verifyBearer(req)

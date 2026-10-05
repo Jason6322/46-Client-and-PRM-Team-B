@@ -33,20 +33,19 @@ git checkout -b feature/notes
 
 ## Files you'll touch
 
-| # | File | New or edit? |
-|---|------|--------------|
-| 1 | `frontend/src/types/firestore.ts` | Edit — replace the whole file |
-| 2 | `frontend/src/lib/firebase/firestore.ts` | Edit — replace the whole file |
-| 3 | `firebase/firestore.rules` | Edit — replace the whole file |
-| 4 | `frontend/src/features/notes/actions/notes.actions.ts` | New file |
-| 5 | `frontend/src/features/notes/components/CreateNoteForm.tsx` | New file |
-| 6 | `frontend/src/features/notes/components/NotesList.tsx` | New file |
-| 7 | `frontend/src/app/(dashboard)/notes/page.tsx` | New file |
-| 8 | `frontend/src/components/layout/Sidebar.tsx` | Edit — replace the whole file |
-| 9 | `docs/FIRESTORE-SCHEMA.md` | Edit — replace the whole file |
+| #   | File                                                        | New or edit?                  |
+| --- | ----------------------------------------------------------- | ----------------------------- |
+| 1   | `frontend/src/types/firestore.ts`                           | Edit — replace the whole file |
+| 2   | `frontend/src/lib/firebase/firestore.ts`                    | Edit — replace the whole file |
+| 3   | `firebase/firestore.rules`                                  | Edit — replace the whole file |
+| 4   | `frontend/src/features/notes/actions/notes.actions.ts`      | New file                      |
+| 5   | `frontend/src/features/notes/components/CreateNoteForm.tsx` | New file                      |
+| 6   | `frontend/src/features/notes/components/NotesList.tsx`      | New file                      |
+| 7   | `frontend/src/app/(dashboard)/notes/page.tsx`               | New file                      |
+| 8   | `frontend/src/components/layout/Sidebar.tsx`                | Edit — replace the whole file |
+| 9   | `docs/FIRESTORE-SCHEMA.md`                                  | Edit — replace the whole file |
 
-Files 1–9 are the whole feature. Files 10–12 are an **optional** backend API endpoint — skip
-them unless you specifically want an `/api/notes` HTTP endpoint in addition to the app itself.
+Files 1–9 are the whole feature.
 
 If a folder in a path doesn't exist yet (e.g. `frontend/src/features/notes/actions/`), create it
 — your code editor will do this automatically when you save a new file at that path.
@@ -58,7 +57,7 @@ If a folder in a path doesn't exist yet (e.g. `frontend/src/features/notes/actio
 **Replace the entire contents of this file with:**
 
 ```typescript
-import type { Timestamp } from 'firebase/firestore'
+import type { Timestamp } from "firebase/firestore";
 
 /**
  * Firestore collection type definitions.
@@ -70,26 +69,29 @@ import type { Timestamp } from 'firebase/firestore'
  */
 
 export interface UserProfile {
-  uid: string
-  email: string
-  displayName: string | null
-  photoURL: string | null
-  role: 'user'
-  createdAt: Timestamp
-  updatedAt: Timestamp
-  _schemaVersion: 1
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+  role: "user";
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  _schemaVersion: 1;
 }
 
-export type CreateUserProfileInput = Omit<UserProfile, 'createdAt' | 'updatedAt'>
+export type CreateUserProfileInput = Omit<
+  UserProfile,
+  "createdAt" | "updatedAt"
+>;
 
 export interface Note {
-  id: string
-  uid: string // owner's user id — used by security rules
-  title: string
-  body: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
-  _schemaVersion: 1
+  id: string;
+  uid: string; // owner's user id — used by security rules
+  title: string;
+  body: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  _schemaVersion: 1;
 }
 ```
 
@@ -100,16 +102,23 @@ export interface Note {
 **Replace the entire contents of this file with:**
 
 ```typescript
-import { collection, doc, type CollectionReference, type DocumentData } from 'firebase/firestore'
-import { getClientDb } from './client'
-import type { Note, UserProfile } from '@/types/firestore'
+import {
+  collection,
+  doc,
+  type CollectionReference,
+  type DocumentData,
+} from "firebase/firestore";
+import { getClientDb } from "./client";
+import type { Note, UserProfile } from "@/types/firestore";
 
 /**
  * Creates a typed Firestore collection reference.
  * Use this factory to add new collections — see docs/FIRESTORE-SCHEMA.md
  */
-function typedCollection<T extends DocumentData>(path: string): CollectionReference<T> {
-  return collection(getClientDb(), path) as CollectionReference<T>
+function typedCollection<T extends DocumentData>(
+  path: string,
+): CollectionReference<T> {
+  return collection(getClientDb(), path) as CollectionReference<T>;
 }
 
 // ── Collections ──────────────────────────────────────────────────────────────
@@ -119,19 +128,19 @@ function typedCollection<T extends DocumentData>(path: string): CollectionRefere
 //   - docs/FIRESTORE-SCHEMA.md
 
 export function getUsersCollection() {
-  return typedCollection<UserProfile>('users')
+  return typedCollection<UserProfile>("users");
 }
 
 export function userDoc(uid: string) {
-  return doc(getUsersCollection(), uid)
+  return doc(getUsersCollection(), uid);
 }
 
 export function getNotesCollection() {
-  return typedCollection<Note>('notes')
+  return typedCollection<Note>("notes");
 }
 
 export function noteDoc(id: string) {
-  return doc(getNotesCollection(), id)
+  return doc(getNotesCollection(), id);
 }
 ```
 
@@ -240,39 +249,44 @@ npx firebase-tools deploy --only firestore:rules
 **This is a new file. Create it with this content:**
 
 ```typescript
-'use server'
+"use server";
 
-import { z } from 'zod'
-import { adminDb } from '@/lib/firebase/admin'
-import { requireAuth } from '@/actions/auth.actions'
-import { Timestamp } from 'firebase-admin/firestore'
-import type { ActionResult } from '@/types'
+import { z } from "zod";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireAuth } from "@/actions/auth.actions";
+import { Timestamp } from "firebase-admin/firestore";
+import type { ActionResult } from "@/types";
 
 const createNoteSchema = z.object({
   title: z.string().min(1).max(200),
   body: z.string().max(10_000),
-})
+});
 
-export async function createNote(input: unknown): Promise<ActionResult<string>> {
-  const session = await requireAuth()
+export async function createNote(
+  input: unknown,
+): Promise<ActionResult<string>> {
+  const session = await requireAuth();
 
-  const parsed = createNoteSchema.safeParse(input)
+  const parsed = createNoteSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Invalid input",
+    };
   }
 
   try {
-    const now = Timestamp.now()
-    const ref = await adminDb.collection('notes').add({
+    const now = Timestamp.now();
+    const ref = await adminDb.collection("notes").add({
       ...parsed.data,
       uid: session.uid,
       createdAt: now,
       updatedAt: now,
       _schemaVersion: 1,
-    })
-    return { success: true, data: ref.id }
+    });
+    return { success: true, data: ref.id };
   } catch {
-    return { success: false, error: 'Failed to create note' }
+    return { success: false, error: "Failed to create note" };
   }
 }
 ```
@@ -494,12 +508,13 @@ Security rules are in `firebase/firestore.rules`.
 Every document in every collection **must** include a `_schemaVersion` field:
 
 \`\`\`typescript
-_schemaVersion: 1  // increment when doing a breaking schema change
+_schemaVersion: 1 // increment when doing a breaking schema change
 \`\`\`
 
 This enables **lazy migration** — when a document is read, check `_schemaVersion` and migrate on the fly if it's behind current.
 
 **Rules:**
+
 - `_schemaVersion` is always `1` on creation
 - Non-breaking changes (adding optional fields with defaults) keep the same version
 - Breaking changes (rename, remove, type change) increment the version and require a migration function
@@ -512,16 +527,16 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 **Path:** `/users/{userId}`
 **Access:** Owner-only (user can read/write their own document; admins can read all)
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `uid` | `string` | Yes | Firebase Auth UID (same as document ID) |
-| `email` | `string` | Yes | User's email address |
-| `displayName` | `string \| null` | Yes | Display name from Auth or profile |
-| `photoURL` | `string \| null` | Yes | Profile photo URL |
-| `role` | `'user' \| 'admin'` | Yes | User role — immutable by user after creation |
-| `createdAt` | `Timestamp` | Yes | When the document was created |
-| `updatedAt` | `Timestamp` | Yes | When the document was last updated |
-| `_schemaVersion` | `1` | Yes | Schema version for lazy migration |
+| Field            | Type                | Required | Description                                  |
+| ---------------- | ------------------- | -------- | -------------------------------------------- |
+| `uid`            | `string`            | Yes      | Firebase Auth UID (same as document ID)      |
+| `email`          | `string`            | Yes      | User's email address                         |
+| `displayName`    | `string \| null`    | Yes      | Display name from Auth or profile            |
+| `photoURL`       | `string \| null`    | Yes      | Profile photo URL                            |
+| `role`           | `'user' \| 'admin'` | Yes      | User role — immutable by user after creation |
+| `createdAt`      | `Timestamp`         | Yes      | When the document was created                |
+| `updatedAt`      | `Timestamp`         | Yes      | When the document was last updated           |
+| `_schemaVersion` | `1`                 | Yes      | Schema version for lazy migration            |
 
 **Creation:** Auto-created by `AuthProvider` on first sign-in via `syncUserProfile()`.
 **Deletion:** Hard-delete is disabled in security rules. Use `deletedAt` field for soft-delete.
@@ -533,14 +548,14 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 **Path:** `/notes/{noteId}`
 **Access:** Owner-only
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `uid` | `string` | Yes | Owner's Firebase Auth UID |
-| `title` | `string` | Yes | Note title (1–200 chars) |
-| `body` | `string` | Yes | Note body (≤10 000 chars) |
-| `createdAt` | `Timestamp` | Yes | Creation time |
-| `updatedAt` | `Timestamp` | Yes | Last update time |
-| `_schemaVersion` | `1` | Yes | Schema version for lazy migration |
+| Field            | Type        | Required | Description                       |
+| ---------------- | ----------- | -------- | --------------------------------- |
+| `uid`            | `string`    | Yes      | Owner's Firebase Auth UID         |
+| `title`          | `string`    | Yes      | Note title (1–200 chars)          |
+| `body`           | `string`    | Yes      | Note body (≤10 000 chars)         |
+| `createdAt`      | `Timestamp` | Yes      | Creation time                     |
+| `updatedAt`      | `Timestamp` | Yes      | Last update time                  |
+| `_schemaVersion` | `1`         | Yes      | Schema version for lazy migration |
 
 ---
 
@@ -571,9 +586,9 @@ If you see "Missing or insufficient permissions," you forgot to deploy the rules
 Run these from the repo root:
 
 ```bash
-pnpm run typecheck   # both packages must report no errors
-pnpm run lint        # both packages must report no errors
-pnpm run test:all    # backend + frontend unit tests must all pass
+pnpm run typecheck   # must report no errors
+pnpm run lint        # must report no errors
+pnpm run test        # unit tests must all pass
 pnpm run build       # confirms the production build compiles
 ```
 
@@ -611,161 +626,6 @@ branch off it in the first place.
 
 ---
 
-## Optional — add a backend API endpoint (Files 10–12)
-
-Skip this section unless you specifically want an HTTP API for notes in addition to the app
-itself (most features never need this — see `GUIDE.md § 1`).
-
-### File 10 — `backend/src/routes/notes.ts`
-
-**This is a new file. Create it with this content:**
-
-```typescript
-import { Router, type Router as ExpressRouter } from 'express'
-import type { Request, Response, NextFunction } from 'express'
-import { z } from 'zod'
-import type { AuthenticatedRequest } from '../middleware/auth'
-import { HttpError } from '../lib/errors'
-import { adminDb } from '../lib/firebase'
-
-const router: ExpressRouter = Router()
-
-const createNoteSchema = z
-  .object({
-    title: z.string().min(1).max(200),
-    body: z.string().max(10_000),
-  })
-  .strict()
-
-/**
- * GET /api/notes
- * List the authenticated user's notes.
- */
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest
-    const snap = await adminDb.collection('notes').where('uid', '==', user.uid).get()
-    res.json({ notes: snap.docs.map((d) => ({ id: d.id, ...d.data() })) })
-  } catch (err) {
-    next(err)
-  }
-})
-
-/**
- * POST /api/notes
- * Create a note owned by the authenticated user.
- */
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest
-
-    const parsed = createNoteSchema.safeParse(req.body)
-    if (!parsed.success) {
-      return next(HttpError.badRequest(parsed.error.errors[0]?.message ?? 'Invalid input'))
-    }
-
-    const ref = adminDb.collection('notes').doc()
-    await ref.set({ ...parsed.data, uid: user.uid, _schemaVersion: 1 })
-
-    res.status(201).json({ id: ref.id })
-  } catch (err) {
-    next(err)
-  }
-})
-
-export { router as notesRouter }
-```
-
-### File 11 — `backend/src/routes/index.ts`
-
-**Replace the entire contents of this file with:**
-
-```typescript
-import { Router, type Router as ExpressRouter } from 'express'
-import { notesRouter } from './notes'
-
-const router: ExpressRouter = Router()
-
-router.use('/notes', notesRouter)
-
-export { router as apiRouter }
-```
-
-### File 12 — `backend/tests/unit/routes/notes.test.ts`
-
-**This is a new file. Create it with this content:**
-
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import request from 'supertest'
-import { createApp } from '../../../src/app'
-import { mockVerifyToken, mockUser } from '../../setup'
-import { adminDb } from '../../../src/lib/firebase'
-
-const app = createApp({ verifyToken: mockVerifyToken })
-
-describe('Notes routes', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  describe('GET /api/notes', () => {
-    it('returns 401 without a token', async () => {
-      vi.mocked(mockVerifyToken).mockRejectedValue(new Error('invalid'))
-      const res = await request(app).get('/api/notes')
-      expect(res.status).toBe(401)
-    })
-
-    it('returns 200 with the user notes for authenticated request', async () => {
-      vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-      const get = vi.fn().mockResolvedValue({
-        docs: [{ id: 'n1', data: () => ({ uid: mockUser.uid, title: 'A', body: 'B' }) }],
-      })
-      const where = vi.fn().mockReturnValue({ get })
-      vi.mocked(adminDb.collection).mockReturnValue({ where } as never)
-
-      const res = await request(app).get('/api/notes').set('Authorization', 'Bearer fake-token')
-      expect(res.status).toBe(200)
-      expect(res.body.notes).toHaveLength(1)
-      expect(where).toHaveBeenCalledWith('uid', '==', mockUser.uid)
-    })
-  })
-
-  describe('POST /api/notes', () => {
-    it('returns 400 for invalid input', async () => {
-      vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-      const res = await request(app)
-        .post('/api/notes')
-        .set('Authorization', 'Bearer fake-token')
-        .send({ title: '' })
-      expect(res.status).toBe(400)
-      expect(res.body.title).toBe('Bad Request')
-    })
-
-    it('returns 201 and the new id for valid input', async () => {
-      vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-      const set = vi.fn().mockResolvedValue(undefined)
-      const doc = vi.fn().mockReturnValue({ id: 'new-note-id', set })
-      vi.mocked(adminDb.collection).mockReturnValue({ doc } as never)
-
-      const res = await request(app)
-        .post('/api/notes')
-        .set('Authorization', 'Bearer fake-token')
-        .send({ title: 'First', body: 'Hello' })
-      expect(res.status).toBe(201)
-      expect(res.body.id).toBe('new-note-id')
-      expect(set).toHaveBeenCalledWith(
-        expect.objectContaining({ uid: mockUser.uid, _schemaVersion: 1 })
-      )
-    })
-  })
-})
-```
-
-Run `pnpm run test` (backend) to confirm these pass.
-
----
-
 ## What you just built
 
 - A feature branch, kept separate from `main` until the work was reviewed and merged
@@ -775,12 +635,10 @@ Run `pnpm run test` (backend) to confirm these pass.
   check who's asking, validate the input, write, never throw
 - A form that calls it, with client-side validation and success/error feedback
 - A live-updating list powered by a Firestore realtime subscription
-- (Optional) an HTTP API endpoint doing the same thing, for cases where the frontend can't be
-  trusted with the logic directly
 - A verified, committed, reviewed pull request — the same loop every change in this repo follows
 
 Every piece here mirrors a real pattern in the codebase — `users` (auth profiles) works exactly
-the same way. See [ARCHITECTURE.md](ARCHITECTURE.md) if you want to understand *why* it's shaped
+the same way. See [ARCHITECTURE.md](ARCHITECTURE.md) if you want to understand _why_ it's shaped
 this way, or [TUTORIAL-WALKTHROUGH.md](TUTORIAL-WALKTHROUGH.md) for the verified results of
 exactly this build (every HTTP status code, every allow/deny security rule case) run against a
 real Firebase project.

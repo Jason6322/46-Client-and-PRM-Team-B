@@ -2,7 +2,7 @@ version: 2
 updates:
   # One entry at the workspace root: pnpm-lock.yaml lives here, and Dependabot
   # only updates the lockfile when it can see it. Pointing at /frontend or
-  # /backend bumps package.json alone, which fails `pnpm install` on CI.
+  # /backend bumped package.json alone, which failed `pnpm install` on CI.
   - package-ecosystem: npm
     directory: /
     schedule:

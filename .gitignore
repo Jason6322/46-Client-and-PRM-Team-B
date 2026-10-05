@@ -23,8 +23,6 @@ ui-debug.log
 
 # Build outputs
 frontend/dist/
-backend/lib/
-backend/dist/
 
 # Testing
 coverage/

@@ -34,18 +34,12 @@ If `--fix` was passed: run `pnpm run lint --fix` first, then re-run to check.
 pnpm run typecheck
 ```
 
-Pass condition: zero type errors in both `frontend/` and `backend/`.
+Pass condition: zero type errors in `frontend/`.
 
 ### Step 4 — Unit tests
 
 ```bash
 pnpm run test
-```
-
-Pass condition: all backend unit tests pass.
-
-```bash
-pnpm run test:component
 ```
 
 Pass condition: all frontend unit tests pass.
@@ -58,9 +52,10 @@ Scan all TypeScript source files that have been modified (use `git diff --name-o
 git diff --name-only HEAD | grep -E '\.(ts|tsx)$' | xargs grep -l 'console\.log' 2>/dev/null
 ```
 
-Also scan the full `src/` directories:
+Also scan the full `src/` directory:
+
 ```bash
-grep -r 'console\.log' frontend/src/ backend/src/ --include='*.ts' --include='*.tsx' -l 2>/dev/null
+grep -r 'console\.log' frontend/src/ --include='*.ts' --include='*.tsx' -l 2>/dev/null
 ```
 
 Pass condition: no `console.log` in `src/` files (debug statements must be removed before merge).
@@ -92,7 +87,7 @@ Or if any check failed:
 ## Verdict: ❌ NOT READY — fix the following before opening a PR:
 
 1. TypeScript: frontend/src/components/layout/Navbar.tsx — Property 'x' does not exist on type 'Y'
-2. console.log: backend/src/routes/users.ts line 42
+2. console.log: frontend/src/features/organisations/actions/organisations.actions.ts line 42
 ```
 
 Do not open a PR until all checks pass. Fix each issue and re-run `/verify`.
