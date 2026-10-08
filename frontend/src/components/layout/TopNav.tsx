@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { LogOut, User } from 'lucide-react'
@@ -54,7 +55,12 @@ export function TopNav() {
   return (
     <header className="bg-nav">
       <div className="flex h-16 items-center gap-8 px-6">
-        <Link href="/dashboard" className="text-base font-bold text-white">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2.5 text-base font-bold text-white"
+        >
+          {/* Decorative: the app name beside it already labels the link. */}
+          <Image src="/fsc-logo.png" alt="" width={40} height={40} preload />
           {process.env.NEXT_PUBLIC_APP_NAME ?? 'FSC CRM'}
         </Link>
 
