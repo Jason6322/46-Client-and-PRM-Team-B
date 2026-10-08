@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createOrganisationSchema,
+  logActivitySchema,
   organisationFormSchema,
   relationshipManagementSchema,
   updateOrganisationSchema,
@@ -80,5 +81,26 @@ describe('lead priority', () => {
     expect(field.safeParse('Urgent').success).toBe(true)
     expect(field.safeParse(null).success).toBe(true)
     expect(field.safeParse(82).success).toBe(false)
+  })
+})
+
+describe('logging an activity', () => {
+  const activity = {
+    type: 'Meeting',
+    occurredAt: '2026-08-29T10:00',
+    attendees: null,
+    agenda: null,
+    notes: null,
+    outcome: null,
+    actionItems: null,
+    nextFollowUp: null,
+    meetingLink: null,
+  }
+
+  it('requires a responsible team member', () => {
+    expect(logActivitySchema.safeParse({ ...activity, responsible: ' ' }).success).toBe(false)
+    expect(logActivitySchema.parse({ ...activity, responsible: 'D. Zytsel' }).responsible).toBe(
+      'D. Zytsel'
+    )
   })
 })

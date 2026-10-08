@@ -32,7 +32,7 @@ export default async function MeetingsForOrganisationPage({
         description="Meetings, calls, emails and notes logged against this organisation"
       />
       <LinkedOrganisationSummary organisation={result.data} timeZone={timeZone} />
-      <MeetingsActivities organisationId={id} activities={activities.data ?? []} />
+      <MeetingsActivities organisation={result.data} activities={activities.data ?? []} />
     </div>
   )
 }

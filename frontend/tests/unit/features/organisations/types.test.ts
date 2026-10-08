@@ -11,6 +11,7 @@ function meeting(id: string, occurredAt: number, createdAt: number): Organisatio
     fromStage: null,
     toStage: null,
     occurredAt,
+    responsible: null,
     attendees: null,
     agenda: null,
     notes: null,

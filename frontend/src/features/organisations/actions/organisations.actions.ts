@@ -129,6 +129,7 @@ function toActivity(doc: FirebaseFirestore.QueryDocumentSnapshot): OrganisationA
     fromStage: data.fromStage ?? null,
     toStage: data.toStage ?? null,
     occurredAt: data.occurredAt instanceof Timestamp ? data.occurredAt.toMillis() : null,
+    responsible: text(data.responsible),
     attendees: text(data.attendees),
     agenda: text(data.agenda),
     notes: text(data.notes),

@@ -236,7 +236,7 @@ export function OrganisationDetail({
           )}
         </Card>
       ) : activeTab === 'Meetings & Activities' ? (
-        <MeetingsActivities organisationId={organisation.id} activities={activities} />
+        <MeetingsActivities organisation={organisation} activities={activities} />
       ) : (
         <Card>
           <EmptyState title={`${activeTab} is not built yet`} />

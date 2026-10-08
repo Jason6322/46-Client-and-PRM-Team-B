@@ -355,8 +355,8 @@ function buildOrganisation(name) {
     return {
       type,
       occurredAt: ts(occurredAt),
-      attendees:
-        type === 'Note' ? null : `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}, ${pick(OWNERS)}`,
+      responsible: pick(OWNERS),
+      attendees: type === 'Note' ? null : `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
       agenda: type === 'Meeting' ? pick(AGENDAS) : null,
       notes: `${pick(AGENDAS)} with ${name}.`,
       outcome: upcoming ? null : pick(OUTCOMES),
@@ -467,7 +467,8 @@ function futureMeeting(organisation, { date, agenda }) {
   return {
     type: 'Meeting',
     occurredAt: Timestamp.fromDate(new Date(`${date}T00:00:00Z`)),
-    attendees: `${organisation.primaryContact.name}, ${responsible}`,
+    responsible,
+    attendees: organisation.primaryContact.name,
     agenda,
     notes: `${agenda} with ${organisation.name}.`,
     outcome: null,

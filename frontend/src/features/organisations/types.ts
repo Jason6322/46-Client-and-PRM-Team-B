@@ -20,6 +20,11 @@ export interface OrganisationActivity {
 
   /** Logged activities only. When the interaction happened, not when it was recorded. */
   occurredAt: number | null
+  /**
+   * Team member responsible for the interaction — not necessarily whoever
+   * logged it. Null on entries logged before the field existed.
+   */
+  responsible: string | null
   attendees: string | null
   agenda: string | null
   notes: string | null

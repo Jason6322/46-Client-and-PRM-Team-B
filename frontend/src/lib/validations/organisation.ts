@@ -168,6 +168,7 @@ export const logActivitySchema = z.object({
     .trim()
     .min(1, 'Enter when it happened')
     .refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date and time'),
+  responsible: z.string().trim().min(1, 'Assign a responsible team member').max(100),
   attendees: optionalText,
   agenda: optionalText,
   notes: optionalText,
@@ -182,6 +183,7 @@ export const logActivitySchema = z.object({
 export const logActivityFormSchema = z.object({
   type: z.enum(LOGGED_ACTIVITY_TYPES, { message: 'Select an activity type' }),
   occurredAt: z.string().min(1, 'Enter when it happened'),
+  responsible: z.string().trim().min(1, 'Assign a responsible team member').max(100),
   attendees: z.string().trim().max(300),
   agenda: z.string().trim().max(1000),
   notes: z.string().trim().max(5000),
@@ -213,6 +215,7 @@ export function toLogActivityInput(values: LogActivityFormValues) {
   return {
     type: values.type,
     occurredAt: values.occurredAt,
+    responsible: values.responsible.trim(),
     attendees: emptyToNull(values.attendees),
     agenda: emptyToNull(values.agenda),
     notes: emptyToNull(values.notes),

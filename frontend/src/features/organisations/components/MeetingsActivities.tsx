@@ -24,6 +24,7 @@ import {
   byOccurrence,
   isLoggedActivity,
   type OrganisationActivity,
+  type OrganisationListItem,
 } from '@/features/organisations/types'
 
 /**
@@ -57,12 +58,13 @@ function nowForInput() {
 }
 
 export function MeetingsActivities({
-  organisationId,
+  organisation,
   activities,
 }: {
-  organisationId: string
+  organisation: Pick<OrganisationListItem, 'id' | 'name' | 'relationshipOwner'>
   activities: OrganisationActivity[]
 }) {
+  const organisationId = organisation.id
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const loggedAll = activities.filter(isLoggedActivity)
@@ -101,6 +103,7 @@ export function MeetingsActivities({
     defaultValues: {
       type: 'Meeting',
       occurredAt: nowForInput(),
+      responsible: organisation.relationshipOwner ?? '',
       attendees: '',
       agenda: '',
       notes: '',
@@ -138,11 +141,11 @@ export function MeetingsActivities({
   const field = (
     name: keyof LogActivityFormValues,
     label: string,
-    options?: { long?: boolean; type?: string }
+    options?: { long?: boolean; type?: string; required?: boolean; placeholder?: string }
   ) => (
     <div>
       <label htmlFor={name} className={labelClass}>
-        {label}
+        {label} {options?.required && <span aria-hidden="true">*</span>}
       </label>
       {options?.long ? (
         <AutoGrowTextarea
@@ -154,6 +157,7 @@ export function MeetingsActivities({
         <input
           id={name}
           type={options?.type ?? 'text'}
+          placeholder={options?.placeholder}
           aria-invalid={errors[name] ? true : undefined}
           className={cn(inputClass, errors[name] && 'border-red-400')}
           {...register(name)}
@@ -195,7 +199,7 @@ export function MeetingsActivities({
                   {activity.notes ?? activity.agenda ?? 'No details recorded'}
                 </p>
 
-                {(activity.attendees ||
+                {((activity.attendees && !activity.responsible) ||
                   (activity.notes && activity.agenda) ||
                   activity.outcome ||
                   activity.actionItems ||
@@ -208,7 +212,8 @@ export function MeetingsActivities({
                         <dd className="inline">{activity.agenda}</dd>
                       </div>
                     )}
-                    {activity.attendees && (
+                    {/* With a responsible member, attendees join them in the footer. */}
+                    {activity.attendees && !activity.responsible && (
                       <div>
                         <dt className="inline text-zinc-500">Attendees: </dt>
                         <dd className="inline">{activity.attendees}</dd>
@@ -263,10 +268,18 @@ export function MeetingsActivities({
                 )}
 
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="text-xs text-zinc-400">
-                    By {activity.actorLabel ?? 'Unknown'} · logged{' '}
-                    {formatDatetime(new Date(activity.createdAt))}
-                  </p>
+                  <div className="text-xs text-zinc-400">
+                    {activity.responsible && (
+                      <p className="text-zinc-500">
+                        Responsible: {activity.responsible}
+                        {activity.attendees && ` · With ${activity.attendees}`}
+                      </p>
+                    )}
+                    <p>
+                      {activity.responsible ? 'Logged by' : 'By'} {activity.actorLabel ?? 'Unknown'}{' '}
+                      · {formatDatetime(new Date(activity.createdAt))}
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => void setArchived(activity, true)}
@@ -314,20 +327,38 @@ export function MeetingsActivities({
 
       <Card title="Log New Meeting / Activity" className="self-start">
         <form className="space-y-4" onSubmit={onSubmit} noValidate>
-          <div>
-            <label htmlFor="type" className={labelClass}>
-              Activity type
-            </label>
-            <select id="type" className={inputClass} {...register('type')}>
-              {LOGGED_ACTIVITY_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="type" className={labelClass}>
+                Activity type <span aria-hidden="true">*</span>
+              </label>
+              <select id="type" className={inputClass} {...register('type')}>
+                {LOGGED_ACTIVITY_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {field('occurredAt', 'Date & time', { type: 'datetime-local', required: true })}
+
+            <div>
+              <label htmlFor="organisation" className={labelClass}>
+                Organisation
+              </label>
+              <input
+                id="organisation"
+                value={organisation.name}
+                readOnly
+                className={cn(inputClass, 'bg-zinc-50 text-zinc-600')}
+              />
+            </div>
+            {field('responsible', 'Responsible team member', {
+              required: true,
+              placeholder: 'Assign a team member',
+            })}
           </div>
 
-          {field('occurredAt', 'Date & time', { type: 'datetime-local' })}
           {field('attendees', 'Attendees / contact')}
           {field('agenda', 'Agenda', { long: true })}
           {field('notes', 'Notes / minutes', { long: true })}
