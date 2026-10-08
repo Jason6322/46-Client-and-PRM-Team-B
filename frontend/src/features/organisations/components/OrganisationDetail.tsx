@@ -110,8 +110,14 @@ export function OrganisationDetail({
                     }
                   : undefined
               }
-              notes={organisation.notes ?? undefined}
             />
+            <Card title="Notes">
+              {organisation.notes ? (
+                <p className="text-sm whitespace-pre-line text-zinc-900">{organisation.notes}</p>
+              ) : (
+                <p className="text-sm text-zinc-400">No notes yet</p>
+              )}
+            </Card>
           </div>
 
           <div className="space-y-6">
