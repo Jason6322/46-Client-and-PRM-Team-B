@@ -182,7 +182,7 @@ export function OrganisationDetail({
                   {opportunities.map((opportunity) => (
                     <li key={opportunity.id} className="text-sm">
                       <Link
-                        href={`/opportunities?selected=${opportunity.id}`}
+                        href={`/opportunities/${opportunity.id}`}
                         className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
                       >
                         {opportunity.name}
@@ -225,7 +225,7 @@ export function OrganisationDetail({
               {opportunities.map((opportunity) => (
                 <li key={opportunity.id} className="border-l-2 border-zinc-100 pl-4">
                   <Link
-                    href={`/opportunities?selected=${opportunity.id}`}
+                    href={`/opportunities/${opportunity.id}`}
                     className="hover:text-brand-600 text-sm font-medium text-zinc-900 transition-colors"
                   >
                     {opportunity.name}

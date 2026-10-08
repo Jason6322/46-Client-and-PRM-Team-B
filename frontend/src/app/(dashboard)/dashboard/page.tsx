@@ -320,7 +320,7 @@ export default async function DashboardPage() {
                   <tr key={opportunity.id} className="border-b border-zinc-50 last:border-0">
                     <td className="px-6 py-4 text-sm font-medium">
                       <Link
-                        href={`/opportunities?selected=${opportunity.id}`}
+                        href={`/opportunities/${opportunity.id}`}
                         className="hover:text-brand-600 text-zinc-900 transition-colors"
                       >
                         {opportunity.name}

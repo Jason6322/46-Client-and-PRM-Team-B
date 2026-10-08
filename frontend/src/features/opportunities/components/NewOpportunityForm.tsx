@@ -55,7 +55,7 @@ export function NewOpportunityForm({ organisations }: { organisations: Organisat
     }
 
     toast.success(`${values.name.trim()} created`)
-    router.push(`/opportunities?selected=${result.data.id}`)
+    router.push(`/opportunities/${result.data.id}`)
   })
 
   const field = (

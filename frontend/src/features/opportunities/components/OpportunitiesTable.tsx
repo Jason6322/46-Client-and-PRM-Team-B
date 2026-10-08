@@ -1,24 +1,14 @@
 import Link from 'next/link'
 import { Card } from '@/components/shared/Card'
-import { cn } from '@/lib/utils'
 import type { OpportunityListItem } from '@/features/opportunities/types'
 
 /**
- * Opportunities table — the top half of the wireframe.
- *
- * Selecting a row is a link that sets ?selected=, so the chosen opportunity
- * survives a reload and the view can be shared or linked to.
+ * Opportunities table. Each opportunity's name links to its own page.
  */
 
 const COLUMNS = ['Opportunity', 'Organisation', 'Type', 'Stage', 'Next Step']
 
-export function OpportunitiesTable({
-  opportunities,
-  selectedId,
-}: {
-  opportunities: OpportunityListItem[]
-  selectedId: string | null
-}) {
+export function OpportunitiesTable({ opportunities }: { opportunities: OpportunityListItem[] }) {
   return (
     <Card className="p-0">
       <div className="overflow-x-auto">
@@ -38,20 +28,14 @@ export function OpportunitiesTable({
           </thead>
           <tbody>
             {opportunities.map((opportunity) => {
-              const selected = opportunity.id === selectedId
-
               return (
                 <tr
                   key={opportunity.id}
-                  className={cn(
-                    'border-b border-zinc-50 last:border-0',
-                    selected ? 'bg-brand-50' : 'hover:bg-zinc-50'
-                  )}
+                  className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50"
                 >
                   <td className="px-6 py-4 text-sm font-medium">
                     <Link
-                      href={`/opportunities?selected=${opportunity.id}`}
-                      scroll={false}
+                      href={`/opportunities/${opportunity.id}`}
                       className="hover:text-brand-600 text-zinc-900 transition-colors"
                     >
                       {opportunity.name}

@@ -5,39 +5,18 @@ import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { listOpportunities } from '@/features/opportunities/actions/opportunities.actions'
 import { OpportunitiesTable } from '@/features/opportunities/components/OpportunitiesTable'
-import { OpportunityDetail } from '@/features/opportunities/components/OpportunityDetail'
-import { RelatedToOpportunity } from '@/features/opportunities/components/RelatedToOpportunity'
-import {
-  getOrganisation,
-  listOrganisationActivities,
-} from '@/features/organisations/actions/organisations.actions'
 
 export const metadata: Metadata = {
   title: 'Opportunities',
 }
 
 /**
- * Opportunities — the table with the selected opportunity's detail and
- * related organisation information beneath it.
- *
- * The selection lives in the URL so it survives a reload and can be shared.
- * With nothing selected, the first opportunity is shown.
+ * Opportunities — every open opportunity. Each one opens on its own page
+ * (/opportunities/[id]) with its details and related activity.
  */
-export default async function OpportunitiesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ selected?: string }>
-}) {
-  const { selected } = await searchParams
+export default async function OpportunitiesPage() {
   const result = await listOpportunities()
   const opportunities = result.success && result.data ? result.data : []
-
-  const current = opportunities.find((item) => item.id === selected) ?? opportunities[0] ?? null
-
-  // The related panel belongs to the opportunity's organisation, so it is only
-  // fetched once something is selected.
-  const organisation = current ? await getOrganisation(current.organisationId) : null
-  const activities = current ? await listOrganisationActivities(current.organisationId) : null
 
   return (
     <div className="space-y-6">
@@ -77,19 +56,7 @@ export default async function OpportunitiesPage({
           />
         </Card>
       ) : (
-        <>
-          <OpportunitiesTable opportunities={opportunities} selectedId={current?.id ?? null} />
-
-          {current && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              <OpportunityDetail key={current.id} opportunity={current} />
-              <RelatedToOpportunity
-                organisation={organisation?.data ?? null}
-                activities={activities?.data ?? []}
-              />
-            </div>
-          )}
-        </>
+        <OpportunitiesTable opportunities={opportunities} />
       )}
     </div>
   )
