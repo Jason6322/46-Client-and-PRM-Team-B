@@ -21,7 +21,6 @@ const COLUMNS = [
   'Organisation',
   'Type',
   'Primary Contact',
-  'Owner',
   'Pipeline Stage',
   'Tags',
   'Last Activity',
@@ -133,9 +132,6 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
                       {organisation.primaryContact.role && (
                         <span className="text-zinc-400"> — {organisation.primaryContact.role}</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-zinc-600">
-                      {organisation.relationshipOwner}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span className="text-brand-600">{organisation.pipelineStage}</span>

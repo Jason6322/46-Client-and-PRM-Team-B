@@ -4,11 +4,13 @@ import { ORGANISATION_TYPES, PIPELINE_STAGES } from '@/features/organisations/co
 import type { OrganisationListItem } from '@/features/organisations/types'
 
 /**
- * Existing organisations — the panel beside the Add Organisation form.
+ * Organisation summary panel, in two places:
  *
- * There to catch duplicates before they are created: the totals, the split by
- * type and by pipeline stage, and the most recently active records, at a
- * glance.
+ * - `add` (default): "Existing organisations" beside the Add Organisation form,
+ *   there to catch duplicates before they are created — totals, the split by
+ *   type and by pipeline stage, and the most recently active records.
+ * - `list`: "List overview" beside the Organisations table — the same totals
+ *   and splits, without the recent list or the link back to the table.
  */
 
 const RECENT_LIMIT = 5
@@ -28,16 +30,34 @@ function countAddedThisMonth(organisations: OrganisationListItem[], timeZone?: s
   ).length
 }
 
+const COPY = {
+  add: {
+    title: 'Existing organisations',
+    description: 'Check this list before adding a new organisation to avoid duplicates.',
+    total: 'Total organisations',
+    month: 'Added this month',
+  },
+  list: {
+    title: 'List overview',
+    description: 'A summary of the organisations in this list.',
+    total: 'Total',
+    month: 'This month',
+  },
+}
+
 export function ExistingOrganisationsPanel({
   organisations,
   archivedCount,
   timeZone,
+  variant = 'add',
 }: {
   /** Active organisations, most recently active first. */
   organisations: OrganisationListItem[]
   archivedCount: number
   timeZone?: string
+  variant?: keyof typeof COPY
 }) {
+  const copy = COPY[variant]
   const addedThisMonth = countAddedThisMonth(organisations, timeZone)
 
   const byType = ORGANISATION_TYPES.map((type) => ({
@@ -53,17 +73,15 @@ export function ExistingOrganisationsPanel({
   const largestStage = Math.max(1, ...byStage.map((entry) => entry.count))
 
   const stats = [
-    { label: 'Total organisations', value: organisations.length },
-    { label: 'Added this month', value: addedThisMonth },
+    { label: copy.total, value: organisations.length },
+    { label: copy.month, value: addedThisMonth },
     { label: 'Archived', value: archivedCount },
   ]
 
   return (
     <Card className="self-start">
-      <h2 className="text-base font-semibold text-zinc-900">Existing organisations</h2>
-      <p className="mt-1 text-sm text-zinc-500">
-        Check this list before adding a new organisation to avoid duplicates.
-      </p>
+      <h2 className="text-base font-semibold text-zinc-900">{copy.title}</h2>
+      <p className="mt-1 text-sm text-zinc-500">{copy.description}</p>
 
       <ul className="mt-4 grid grid-cols-3 gap-3">
         {stats.map((stat) => (
@@ -114,7 +132,7 @@ export function ExistingOrganisationsPanel({
         ))}
       </ul>
 
-      {organisations.length > 0 && (
+      {variant === 'add' && organisations.length > 0 && (
         <>
           <p className="mt-5 border-t border-zinc-100 pt-4 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
             Recently active
@@ -140,12 +158,14 @@ export function ExistingOrganisationsPanel({
         </>
       )}
 
-      <Link
-        href="/organisations"
-        className="text-brand-600 hover:text-brand-700 mt-4 inline-block text-sm font-semibold transition-colors"
-      >
-        View all organisations →
-      </Link>
+      {variant === 'add' && (
+        <Link
+          href="/organisations"
+          className="text-brand-600 hover:text-brand-700 mt-4 inline-block text-sm font-semibold transition-colors"
+        >
+          View all organisations →
+        </Link>
+      )}
     </Card>
   )
 }

@@ -3,8 +3,13 @@ import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
+import {
+  listArchivedOrganisations,
+  listOrganisations,
+} from '@/features/organisations/actions/organisations.actions'
+import { ExistingOrganisationsPanel } from '@/features/organisations/components/ExistingOrganisationsPanel'
 import { OrganisationsTable } from '@/features/organisations/components/OrganisationsTable'
+import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 
 export const metadata: Metadata = {
   title: 'Organisations',
@@ -14,10 +19,15 @@ export const metadata: Metadata = {
  * Organisations list — screen 3 of the approved prototype.
  *
  * Fetches the collection on the server and hands it to a Client Component,
- * which does the search filtering in memory.
+ * which does the search filtering in memory. The List overview panel on the
+ * right summarises the same records.
  */
 export default async function OrganisationsPage() {
-  const result = await listOrganisations()
+  const [result, archived, timeZone] = await Promise.all([
+    listOrganisations(),
+    listArchivedOrganisations(),
+    getViewerTimeZone(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -43,7 +53,15 @@ export default async function OrganisationsPage() {
       />
 
       {result.success && result.data ? (
-        <OrganisationsTable organisations={result.data} />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <OrganisationsTable organisations={result.data} />
+          <ExistingOrganisationsPanel
+            variant="list"
+            organisations={result.data}
+            archivedCount={archived.data?.length ?? 0}
+            timeZone={timeZone}
+          />
+        </div>
       ) : (
         <Card>
           <EmptyState
