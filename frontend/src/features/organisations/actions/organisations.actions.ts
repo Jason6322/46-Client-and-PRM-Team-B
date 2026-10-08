@@ -666,3 +666,53 @@ export async function restoreOrganisation(id: string): Promise<ActionResult> {
     return { success: false, error: 'Failed to restore organisation' }
   }
 }
+
+/**
+ * Permanently delete an archived organisation, its activity history and its
+ * opportunities. The client keeps archived records until they choose to remove
+ * them, so this is the only hard delete and it refuses an active organisation —
+ * archive first.
+ */
+export async function deleteOrganisationPermanently(id: unknown): Promise<ActionResult> {
+  await requireAuth()
+
+  const parsed = idSchema.safeParse(id)
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid organisation' }
+  }
+
+  try {
+    const ref = adminDb.collection(COLLECTION).doc(parsed.data)
+    const snapshot = await ref.get()
+    const data = snapshot.data()
+
+    if (!snapshot.exists || !data) {
+      return { success: false, error: 'Organisation not found' }
+    }
+    if (data.deletedAt === null) {
+      return { success: false, error: 'Archive the organisation before deleting it' }
+    }
+
+    // Opportunities live in their own collection, so recursiveDelete won't
+    // reach them; without this they would point at an organisation that is gone.
+    const opportunities = await adminDb
+      .collection('opportunities')
+      .where('organisationId', '==', parsed.data)
+      .get()
+    const writer = adminDb.bulkWriter()
+    for (const opportunity of opportunities.docs) {
+      void writer.delete(opportunity.ref)
+    }
+    await writer.close()
+
+    // Removes the organisation and its activities subcollection.
+    await adminDb.recursiveDelete(ref)
+
+    revalidatePath('/organisations/archived')
+    revalidatePath('/opportunities')
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to delete organisation' }
+  }
+}

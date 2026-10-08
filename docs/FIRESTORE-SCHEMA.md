@@ -91,7 +91,7 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 **Archiving vs the Archived stage:** these are two different things. `deletedAt` is a soft delete — the record is hidden from lists but kept. The `Archived` _pipeline stage_ means the relationship ended while the record stays active in the CRM.
 
 **Creation:** `createOrganisation()` in `frontend/src/features/organisations/actions/organisations.actions.ts`.
-**Deletion:** Soft-delete only, via `archiveOrganisation()`. Reverse with `restoreOrganisation()`.
+**Deletion:** Archive first with `archiveOrganisation()` (soft delete, reversed with `restoreOrganisation()`). Archived organisations are kept indefinitely — the client asked that nothing be removed automatically. `deleteOrganisationPermanently()` hard-deletes an archived organisation, its `activities` subcollection and its `opportunities`; it refuses an organisation that isn't archived.
 
 **Security rules** (`firebase/firestore.rules`): signed-in users may read organisations whose `deletedAt` is null; client writes are denied. The Server Actions use the Admin SDK, which bypasses rules, so the app is unaffected — denying client writes stops anyone skipping the Zod validation, activity history and soft-delete logic by writing with the client SDK. A client list query must filter on `where('deletedAt', '==', null)`, or Firestore rejects the whole query.
 
@@ -130,7 +130,7 @@ Links are restricted to `http`/`https` in validation: `z.string().url()` accepts
 
 | `deletedAt` | `Timestamp \| null` | Soft-delete marker for logged activities; `null` when active |
 
-Logged activities can be archived and restored via `setActivityArchived()`; archived entries appear in a collapsed "Archived" section on the timeline. Stage changes cannot be archived — the history would stop matching the organisation's actual stage. Nothing is ever hard-deleted, and entries cannot be edited.
+Logged activities can be archived and restored via `setActivityArchived()`; archived entries appear in a collapsed "Archived" section on the timeline. Stage changes cannot be archived — the history would stop matching the organisation's actual stage. Entries are only hard-deleted along with their organisation (`deleteOrganisationPermanently()`), and cannot be edited.
 
 ---
 

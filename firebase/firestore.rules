@@ -63,6 +63,8 @@ service cloud.firestore {
     // frontend/src/features/organisations/actions/, which use the Admin SDK
     // (rules do not apply to it) and are where input is validated with Zod,
     // stage changes are recorded as activity, and archiving is a soft delete.
+    // Archived organisations are kept until a team member permanently deletes
+    // one from the archive screen (deleteOrganisationPermanently, Admin SDK).
     // A client-SDK write would skip all of that, so clients may only read.
     //
     // Archived organisations (deletedAt set) are hidden from client reads; the

@@ -5,24 +5,31 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { formatDate, formatRelativeTime } from '@/lib/utils'
-import { restoreOrganisation } from '@/features/organisations/actions/organisations.actions'
-import { RETENTION_DAYS, purgeDateFor } from '@/features/organisations/retention'
+import { cn, formatRelativeTime } from '@/lib/utils'
+import {
+  deleteOrganisationPermanently,
+  restoreOrganisation,
+} from '@/features/organisations/actions/organisations.actions'
 import type { OrganisationListItem } from '@/features/organisations/types'
 
 /**
- * Archived organisations, with the retention date each one is scheduled to be
- * removed on. Restoring clears deletedAt and returns the record to the list.
+ * Archived organisations. They are kept until someone deletes them here —
+ * nothing is removed automatically. Restoring clears deletedAt and returns the
+ * record to the list; deleting removes it for good.
  */
 
-function RestoreButton({ id, name }: { id: string; name: string }) {
+const secondaryButton =
+  'rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-zinc-50 disabled:opacity-60'
+
+function RowActions({ id, name }: { id: string; name: string }) {
   const router = useRouter()
-  const [pending, setPending] = useState(false)
+  const [pending, setPending] = useState<'restore' | 'delete' | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const restore = async () => {
-    setPending(true)
+    setPending('restore')
     const result = await restoreOrganisation(id)
-    setPending(false)
+    setPending(null)
 
     if (!result.success) {
       toast.error(result.error ?? 'Failed to restore organisation')
@@ -33,15 +40,64 @@ function RestoreButton({ id, name }: { id: string; name: string }) {
     router.refresh()
   }
 
+  const remove = async () => {
+    setPending('delete')
+    const result = await deleteOrganisationPermanently(id)
+    setPending(null)
+
+    if (!result.success) {
+      toast.error(result.error ?? 'Failed to delete organisation')
+      return
+    }
+
+    toast.success(`${name} permanently deleted`)
+    setConfirming(false)
+    router.refresh()
+  }
+
+  if (confirming) {
+    return (
+      <span className="flex items-center justify-end gap-2">
+        <span className="text-xs text-zinc-500">Delete for good?</span>
+        <button
+          type="button"
+          onClick={remove}
+          disabled={pending !== null}
+          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+        >
+          {pending === 'delete' ? 'Deleting...' : 'Confirm delete'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          disabled={pending !== null}
+          className={cn(secondaryButton, 'text-zinc-600')}
+        >
+          Cancel
+        </button>
+      </span>
+    )
+  }
+
   return (
-    <button
-      type="button"
-      onClick={restore}
-      disabled={pending}
-      className="text-brand-600 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-zinc-50 disabled:opacity-60"
-    >
-      {pending ? 'Restoring...' : 'Restore'}
-    </button>
+    <span className="flex items-center justify-end gap-2">
+      <button
+        type="button"
+        onClick={restore}
+        disabled={pending !== null}
+        className={cn(secondaryButton, 'text-brand-600')}
+      >
+        {pending === 'restore' ? 'Restoring...' : 'Restore'}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        disabled={pending !== null}
+        className={cn(secondaryButton, 'text-red-600')}
+      >
+        Delete permanently
+      </button>
+    </span>
   )
 }
 
@@ -68,17 +124,15 @@ export function ArchivedOrganisationsTable({
           <table className="w-full min-w-3xl border-collapse text-left">
             <thead>
               <tr className="border-b border-zinc-100">
-                {['Organisation', 'Type', 'Owner', 'Archived', 'Scheduled removal', ''].map(
-                  (column, index) => (
-                    <th
-                      key={column || `actions-${index}`}
-                      scope="col"
-                      className="px-6 py-4 text-xs font-semibold text-zinc-500"
-                    >
-                      {column}
-                    </th>
-                  )
-                )}
+                {['Organisation', 'Type', 'Archived', ''].map((column, index) => (
+                  <th
+                    key={column || `actions-${index}`}
+                    scope="col"
+                    className="px-6 py-4 text-xs font-semibold text-zinc-500"
+                  >
+                    {column}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -91,19 +145,11 @@ export function ArchivedOrganisationsTable({
                     {organisation.name}
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-600">{organisation.type}</td>
-                  <td className="px-6 py-4 text-sm text-zinc-600">
-                    {organisation.relationshipOwner ?? '—'}
-                  </td>
                   <td className="px-6 py-4 text-sm text-zinc-500">
                     {organisation.deletedAt ? formatRelativeTime(organisation.deletedAt) : '—'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-zinc-500">
-                    {organisation.deletedAt
-                      ? formatDate(purgeDateFor(organisation.deletedAt))
-                      : '—'}
-                  </td>
                   <td className="px-6 py-4 text-right">
-                    <RestoreButton id={organisation.id} name={organisation.name} />
+                    <RowActions id={organisation.id} name={organisation.name} />
                   </td>
                 </tr>
               ))}
@@ -113,8 +159,8 @@ export function ArchivedOrganisationsTable({
       </Card>
 
       <p className="text-sm text-zinc-500">
-        Archived organisations are kept for {RETENTION_DAYS} days. Nothing is removed automatically
-        yet — see the retention note in the code.
+        Archived organisations are kept until you delete them. Deleting also removes their activity
+        history and opportunities, and can&apos;t be undone.
       </p>
     </div>
   )

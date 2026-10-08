@@ -5,7 +5,6 @@ import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { listArchivedOrganisations } from '@/features/organisations/actions/organisations.actions'
 import { ArchivedOrganisationsTable } from '@/features/organisations/components/ArchivedOrganisationsTable'
-import { RETENTION_DAYS } from '@/features/organisations/retention'
 
 export const metadata: Metadata = {
   title: 'Archived Organisations',
@@ -18,7 +17,7 @@ export default async function ArchivedOrganisationsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Archived Organisations"
-        description={`Archived records are kept for ${RETENTION_DAYS} days and can be restored`}
+        description="Archived records are kept until you delete them, and can be restored"
         actions={
           <Link
             href="/organisations"
