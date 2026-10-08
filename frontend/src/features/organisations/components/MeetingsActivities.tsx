@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -13,7 +14,11 @@ import {
   logActivity,
   setActivityArchived,
 } from '@/features/organisations/actions/organisations.actions'
-import { ActivityCalendar, dayKey } from '@/features/organisations/components/ActivityCalendar'
+import {
+  ActivityCalendar,
+  CALENDAR_MEETINGS_KEY,
+  dayKey,
+} from '@/features/organisations/components/ActivityCalendar'
 import { ACTIVITY_TYPE_CLASSES, LOGGED_ACTIVITY_TYPES } from '@/features/organisations/constants'
 import {
   logActivityFormSchema,
@@ -38,7 +43,8 @@ import {
  * filters them out rather than mixing two kinds of entry.
  *
  * The calendar under the timeline marks the days with an interaction, and
- * choosing one narrows the timeline to that day.
+ * choosing one narrows the timeline to that day. It also shows meetings booked
+ * with every other organisation, so free time is visible when booking.
  */
 
 /**
@@ -71,6 +77,7 @@ export function MeetingsActivities({
 }) {
   const organisationId = organisation.id
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const loggedAll = activities.filter(isLoggedActivity)
@@ -103,6 +110,7 @@ export function MeetingsActivities({
     }
 
     toast.success(archive ? `${activity.type} archived` : `${activity.type} restored`)
+    void queryClient.invalidateQueries({ queryKey: CALENDAR_MEETINGS_KEY })
     router.refresh()
   }
 
@@ -148,6 +156,7 @@ export function MeetingsActivities({
       meetingLink: '',
       documentLinks: '',
     })
+    void queryClient.invalidateQueries({ queryKey: CALENDAR_MEETINGS_KEY })
     router.refresh()
   })
 
@@ -360,6 +369,7 @@ export function MeetingsActivities({
         </Card>
 
         <ActivityCalendar
+          organisationId={organisationId}
           activityDays={activityDays}
           selectedDay={selectedDay}
           onSelectDay={setSelectedDay}

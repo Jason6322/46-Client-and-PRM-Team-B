@@ -44,6 +44,13 @@ export interface OrganisationActivity {
   deletedAt: number | null
 }
 
+/** A meeting with the organisation it belongs to — for views across every organisation. */
+export interface MeetingWithOrganisation {
+  organisationId: string
+  organisationName: string
+  activity: OrganisationActivity
+}
+
 /** Narrowing helper — a hand-logged interaction rather than a stage change. */
 export function isLoggedActivity(
   activity: OrganisationActivity

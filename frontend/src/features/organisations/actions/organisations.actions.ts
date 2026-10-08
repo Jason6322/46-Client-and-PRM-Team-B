@@ -25,7 +25,11 @@ import {
 import { dateOnlyToDate } from '@/features/organisations/followUp'
 import type { ActionResult } from '@/types'
 import type { Organisation } from '@/types/firestore'
-import type { OrganisationActivity, OrganisationListItem } from '@/features/organisations/types'
+import type {
+  MeetingWithOrganisation,
+  OrganisationActivity,
+  OrganisationListItem,
+} from '@/features/organisations/types'
 
 /**
  * Organisation Server Actions — create, view, edit and archive.
@@ -156,11 +160,7 @@ const upcomingMeetingsSchema = z.object({
 /**
  * Meetings between `from` and `to` (epoch millis) across the given
  * organisations, soonest first — for the dashboard's upcoming meetings.
- *
- * One query per organisation, filtered on occurredAt alone so the automatic
- * single-field index serves it; type and archived are filtered here, which
- * avoids a composite index. Firestore bills a query that matches nothing as
- * one read, so this costs about one read per organisation.
+ * See meetingsBetween for the cost.
  */
 export async function listUpcomingMeetings(
   input: z.input<typeof upcomingMeetingsSchema>
@@ -172,32 +172,89 @@ export async function listUpcomingMeetings(
   const { organisationIds, from, to } = parsed.data
 
   try {
-    const snapshots = await Promise.all(
-      organisationIds.map((organisationId) =>
-        adminDb
-          .collection(COLLECTION)
-          .doc(organisationId)
-          .collection(ACTIVITIES)
-          .where('occurredAt', '>=', Timestamp.fromMillis(from))
-          .where('occurredAt', '<=', Timestamp.fromMillis(to))
-          .get()
-      )
-    )
-
-    const meetings = snapshots.flatMap((snapshot, index) =>
-      snapshot.docs
-        .map(toActivity)
-        .filter((activity) => activity.type === 'Meeting' && activity.deletedAt === null)
-        .map((activity) => ({ organisationId: organisationIds[index]!, activity }))
-    )
-
-    return {
-      success: true,
-      data: meetings.sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0)),
-    }
+    return { success: true, data: await meetingsBetween(organisationIds, from, to) }
   } catch {
     return { success: false, error: 'Failed to load upcoming meetings' }
   }
+}
+
+/** Long enough for a month view with its padding days, short enough to bound the reads. */
+const MAX_CALENDAR_RANGE = 45 * 24 * 60 * 60 * 1000
+
+const calendarMeetingsSchema = z
+  .object({ from: z.number().int(), to: z.number().int() })
+  .refine(({ from, to }) => to >= from && to - from <= MAX_CALENDAR_RANGE)
+
+/**
+ * Meetings between `from` and `to` across every organisation, soonest first,
+ * each with its organisation's name — for the calendar on every Meetings page,
+ * so booking with one organisation shows what is already booked with the rest.
+ *
+ * Costs one read per organisation for the list plus about one per
+ * organisation for the meetings, the same as the dashboard's upcoming meetings.
+ */
+export async function listCalendarMeetings(
+  input: z.input<typeof calendarMeetingsSchema>
+): Promise<ActionResult<MeetingWithOrganisation[]>> {
+  await requireAuth()
+
+  const parsed = calendarMeetingsSchema.safeParse(input)
+  if (!parsed.success) return { success: false, error: 'Invalid meeting range' }
+  const { from, to } = parsed.data
+
+  try {
+    // Filtered in memory, like listOrganisations — documents written before
+    // deletedAt existed lack the field and would not match a `== null` query.
+    const snapshot = await adminDb.collection(COLLECTION).get()
+    const names = new Map(
+      snapshot.docs
+        .filter((doc) => !(doc.data().deletedAt instanceof Timestamp))
+        .map((doc) => [doc.id, String(doc.data().name ?? 'Unnamed organisation')])
+    )
+    const meetings = await meetingsBetween([...names.keys()], from, to)
+
+    return {
+      success: true,
+      data: meetings.map((meeting) => ({
+        ...meeting,
+        organisationName: names.get(meeting.organisationId) ?? 'Unnamed organisation',
+      })),
+    }
+  } catch {
+    return { success: false, error: 'Failed to load meetings' }
+  }
+}
+
+/**
+ * Meetings between `from` and `to` (epoch millis) across the given
+ * organisations, soonest first.
+ *
+ * One query per organisation, filtered on occurredAt alone so the automatic
+ * single-field index serves it; type and archived are filtered here, which
+ * avoids a composite index. Firestore bills a query that matches nothing as
+ * one read, so this costs about one read per organisation.
+ */
+async function meetingsBetween(organisationIds: string[], from: number, to: number) {
+  const snapshots = await Promise.all(
+    organisationIds.map((organisationId) =>
+      adminDb
+        .collection(COLLECTION)
+        .doc(organisationId)
+        .collection(ACTIVITIES)
+        .where('occurredAt', '>=', Timestamp.fromMillis(from))
+        .where('occurredAt', '<=', Timestamp.fromMillis(to))
+        .get()
+    )
+  )
+
+  const meetings = snapshots.flatMap((snapshot, index) =>
+    snapshot.docs
+      .map(toActivity)
+      .filter((activity) => activity.type === 'Meeting' && activity.deletedAt === null)
+      .map((activity) => ({ organisationId: organisationIds[index]!, activity }))
+  )
+
+  return meetings.sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0))
 }
 
 /**
