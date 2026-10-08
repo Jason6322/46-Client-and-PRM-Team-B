@@ -76,10 +76,9 @@ function Card({
 
       <p
         className={cn('mt-2 text-xs text-zinc-500', compact && 'truncate')}
-        title={`Owner: ${organisation.relationshipOwner ?? 'Unassigned'} · Next: ${organisation.nextAction ?? '—'}`}
+        title={`Next: ${organisation.nextAction ?? '—'}`}
       >
-        Owner: {organisation.relationshipOwner ?? 'Unassigned'} · Next:{' '}
-        {organisation.nextAction ?? '—'}
+        Next: {organisation.nextAction ?? '—'}
       </p>
 
       <label className="sr-only focus-within:not-sr-only">

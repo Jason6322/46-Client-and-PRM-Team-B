@@ -10,7 +10,7 @@ import type { OpportunityListItem } from '@/features/opportunities/types'
  * survives a reload and the view can be shared or linked to.
  */
 
-const COLUMNS = ['Opportunity', 'Organisation', 'Type', 'Stage', 'Owner', 'Next Step']
+const COLUMNS = ['Opportunity', 'Organisation', 'Type', 'Stage', 'Next Step']
 
 export function OpportunitiesTable({
   opportunities,
@@ -72,7 +72,6 @@ export function OpportunitiesTable({
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-600">{opportunity.type}</td>
                   <td className="text-brand-600 px-6 py-4 text-sm">{opportunity.stage}</td>
-                  <td className="px-6 py-4 text-sm text-zinc-600">{opportunity.owner}</td>
                   <td className="px-6 py-4 text-sm text-zinc-600">{opportunity.nextStep ?? '—'}</td>
                 </tr>
               )

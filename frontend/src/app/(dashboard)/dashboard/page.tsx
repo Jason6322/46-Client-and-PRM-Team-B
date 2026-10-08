@@ -304,7 +304,7 @@ export default async function DashboardPage() {
             <table className="w-full min-w-3xl border-collapse text-left">
               <thead>
                 <tr className="border-b border-zinc-100">
-                  {['Opportunity', 'Organisation', 'Stage', 'Owner', 'Next Step'].map((column) => (
+                  {['Opportunity', 'Organisation', 'Stage', 'Next Step'].map((column) => (
                     <th
                       key={column}
                       scope="col"
@@ -330,7 +330,6 @@ export default async function DashboardPage() {
                       {opportunity.organisationName}
                     </td>
                     <td className="text-brand-600 px-6 py-4 text-sm">{opportunity.stage}</td>
-                    <td className="px-6 py-4 text-sm text-zinc-600">{opportunity.owner}</td>
                     <td className="px-6 py-4 text-sm text-zinc-600">
                       {opportunity.nextStep ?? '—'}
                     </td>
