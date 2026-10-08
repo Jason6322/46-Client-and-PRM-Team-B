@@ -52,6 +52,7 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Organisati
     relationshipStatus: RELATIONSHIP_STATUSES.includes(data.relationshipStatus)
       ? data.relationshipStatus
       : null,
+    relationshipOwner: text(data.relationshipOwner) || null,
     businessResearchNotes: text(data.businessResearchNotes),
     qualificationInfo: text(data.qualificationInfo),
     leadScore: typeof data.leadScore === 'number' ? data.leadScore : null,

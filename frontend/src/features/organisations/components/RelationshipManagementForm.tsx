@@ -51,7 +51,7 @@ export function RelationshipManagementForm({
       communicationRecord: organisation.communicationRecord ?? '',
       followUpStatus: organisation.followUpStatus ?? '',
       relationshipNotes: organisation.relationshipNotes ?? '',
-      relationshipOwner: organisation.relationshipOwner,
+      relationshipOwner: organisation.relationshipOwner ?? '',
       nextAction: organisation.nextAction ?? '',
     },
   })
@@ -179,7 +179,7 @@ export function RelationshipManagementForm({
 
         <Card title="Assignment &amp; Notes">
           <div className="grid gap-5 sm:grid-cols-2">
-            {field('relationshipOwner', 'Assigned team member')}
+            {field('relationshipOwner', 'Assigned team member', 'Unassigned')}
             {notesField('relationshipNotes', 'Relationship notes')}
           </div>
 

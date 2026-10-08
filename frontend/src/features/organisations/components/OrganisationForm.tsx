@@ -89,7 +89,6 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
           industry: '',
           country: '',
           website: '',
-          relationshipOwner: '',
           relationshipStatus: '',
           tags: '',
           notes: '',
@@ -180,22 +179,16 @@ export function OrganisationForm({ organisation }: { organisation?: Organisation
             registration={register('country')}
             error={errors.country}
           />
-          <Field
-            id="website"
-            label="Website"
-            type="url"
-            placeholder="https://"
-            registration={register('website')}
-            error={errors.website}
-          />
-          <Field
-            id="relationshipOwner"
-            label="Relationship Owner"
-            required
-            placeholder="Assign team member"
-            registration={register('relationshipOwner')}
-            error={errors.relationshipOwner}
-          />
+          <div className="sm:col-span-2">
+            <Field
+              id="website"
+              label="Website"
+              type="url"
+              placeholder="https://"
+              registration={register('website')}
+              error={errors.website}
+            />
+          </div>
         </div>
 
         <div className="mt-5 sm:w-1/2">

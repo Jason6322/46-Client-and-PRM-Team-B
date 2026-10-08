@@ -45,7 +45,7 @@ export function OrganisationDetailsCard({
         <ReadOnlyField label="Industry / Sector" value={industry} />
         <ReadOnlyField label="Country" value={country} />
         <ReadOnlyField label="Website" value={website} />
-        <ReadOnlyField label="Relationship Owner" value={relationshipOwner} />
+        <ReadOnlyField label="Relationship Owner" value={relationshipOwner ?? 'Unassigned'} />
         <ReadOnlyField label="Relationship Status" value={relationshipStatus} />
       </div>
 

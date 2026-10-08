@@ -92,7 +92,7 @@ export function ArchivedOrganisationsTable({
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-600">{organisation.type}</td>
                   <td className="px-6 py-4 text-sm text-zinc-600">
-                    {organisation.relationshipOwner}
+                    {organisation.relationshipOwner ?? '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-500">
                     {organisation.deletedAt ? formatRelativeTime(organisation.deletedAt) : '—'}

@@ -12,8 +12,9 @@ import { isDateOnly, millisToDateOnly } from '@/features/organisations/followUp'
  * Organisation input validation.
  *
  * Mirrors the Add Organisation form on screen 5 of the approved prototype:
- * name, type, country, relationship owner and the primary contact's name are
- * the only required fields. Optional text fields normalise "" to null so the
+ * name, type, country and the primary contact's name are the only required
+ * fields. The relationship owner is assigned later, on the Relationships
+ * screen. Optional text fields normalise "" to null so the
  * Firestore document never holds empty strings.
  */
 
@@ -61,7 +62,7 @@ export const createOrganisationSchema = z.object({
   industry: optionalText,
   country: z.string().trim().min(1, 'Country is required').max(100),
   website: webUrl.nullable().or(z.literal('').transform(() => null)),
-  relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
+  relationshipOwner: optionalText.pipe(z.string().max(100).nullable()).default(null),
   // "test, test" would store the tag twice and render duplicate React keys.
   tags: z
     .array(z.string().trim().min(1))
@@ -119,7 +120,7 @@ export const relationshipManagementSchema = z.object({
   followUpStatus: optionalText,
   relationshipNotes: optionalText,
   // Shared with the profile rather than duplicated.
-  relationshipOwner: z.string().trim().min(1, 'Assigned team member is required').max(100),
+  relationshipOwner: optionalText.pipe(z.string().max(100).nullable()),
   nextAction: optionalText,
 })
 
@@ -140,7 +141,7 @@ export const relationshipManagementFormSchema = z.object({
   communicationRecord: z.string().trim().max(2000),
   followUpStatus: z.string().trim().max(200),
   relationshipNotes: z.string().trim().max(2000),
-  relationshipOwner: z.string().trim().min(1, 'Assigned team member is required').max(100),
+  relationshipOwner: z.string().trim().max(100),
   nextAction: z.string().trim().max(300),
 })
 
@@ -158,7 +159,7 @@ export function toRelationshipManagementInput(values: RelationshipManagementForm
     communicationRecord: emptyToNull(values.communicationRecord),
     followUpStatus: emptyToNull(values.followUpStatus),
     relationshipNotes: emptyToNull(values.relationshipNotes),
-    relationshipOwner: values.relationshipOwner.trim(),
+    relationshipOwner: emptyToNull(values.relationshipOwner),
     nextAction: emptyToNull(values.nextAction),
   }
 }
@@ -262,7 +263,6 @@ export const organisationFormSchema = z
     industry: z.string().trim(),
     country: z.string().trim().min(1, 'Country is required').max(100),
     website: z.union([webUrl, z.literal('')]),
-    relationshipOwner: z.string().trim().min(1, 'Relationship owner is required').max(100),
     relationshipStatus: z.union([z.enum(RELATIONSHIP_STATUSES), z.literal('')]),
     tags: z.string(),
     notes: z.string(),
@@ -295,7 +295,6 @@ export function toCreateOrganisationInput(values: OrganisationFormValues) {
     industry: emptyToNull(values.industry),
     country: values.country.trim(),
     website: emptyToNull(values.website),
-    relationshipOwner: values.relationshipOwner.trim(),
     relationshipStatus: values.relationshipStatus === '' ? null : values.relationshipStatus,
     tags: values.tags
       .split(',')
@@ -316,7 +315,6 @@ export function toOrganisationFormValues(organisation: {
   industry: string | null
   country: string
   website: string | null
-  relationshipOwner: string
   relationshipStatus: OrganisationFormValues['relationshipStatus'] | null
   tags: string[]
   notes: string | null
@@ -348,7 +346,6 @@ export function toOrganisationFormValues(organisation: {
     industry: organisation.industry ?? '',
     country: organisation.country,
     website: organisation.website ?? '',
-    relationshipOwner: organisation.relationshipOwner,
     relationshipStatus: organisation.relationshipStatus ?? '',
     tags: [...new Set(organisation.tags)].join(', '),
     notes: organisation.notes ?? '',

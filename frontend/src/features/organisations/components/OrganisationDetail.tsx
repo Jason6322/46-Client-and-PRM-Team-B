@@ -90,7 +90,7 @@ export function OrganisationDetail({
               industry={organisation.industry ?? undefined}
               country={organisation.country}
               website={organisation.website ?? undefined}
-              relationshipOwner={organisation.relationshipOwner}
+              relationshipOwner={organisation.relationshipOwner ?? undefined}
               relationshipStatus={organisation.relationshipStatus ?? undefined}
               tags={organisation.tags}
             />

@@ -62,7 +62,8 @@ export default async function RelationshipsPage() {
                 )}
               </p>
               <p className="mt-3 text-xs text-zinc-500">
-                {organisation.relationshipOwner} · {formatRelativeTime(organisation.lastActivityAt)}
+                {organisation.relationshipOwner ?? 'Unassigned'} ·{' '}
+                {formatRelativeTime(organisation.lastActivityAt)}
               </p>
             </Link>
           ))}

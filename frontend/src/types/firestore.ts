@@ -52,7 +52,11 @@ export interface Organisation {
   industry: string | null
   country: string
   website: string | null
-  relationshipOwner: string
+  /**
+   * Team member who owns the relationship. Null until assigned on the
+   * Relationships screen — it is no longer asked for when adding one.
+   */
+  relationshipOwner: string | null
   tags: string[]
   pipelineStage: PipelineStage
   /**

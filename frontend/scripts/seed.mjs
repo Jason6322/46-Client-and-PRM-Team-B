@@ -392,7 +392,8 @@ function buildOrganisation(name) {
     industry: pick(INDUSTRIES),
     country,
     website: chance(0.8) ? `https://www.${domain}` : null,
-    relationshipOwner: pick(OWNERS),
+    // Assigned on the Relationships screen, so a few are still unassigned.
+    relationshipOwner: chance(0.85) ? pick(OWNERS) : null,
     tags: ['demo', ...sample(TAGS, between(1, 3))],
     pipelineStage,
     relationshipStatus:
@@ -438,7 +439,7 @@ function buildOpportunity(organisationId, organisation) {
     organisationName: organisation.name,
     type: pick(OPPORTUNITY_TYPES),
     stage,
-    owner: organisation.relationshipOwner,
+    owner: organisation.relationshipOwner ?? pick(OWNERS),
     nextStep: completed ? null : pick(NEXT_ACTIONS),
     proposalDocument: chance(0.4) ? `https://docs.example.org/proposals/${organisationId}` : null,
     description: `Joint work with ${organisation.name} on local food access.`,
@@ -461,10 +462,11 @@ const FUTURE_MEETINGS = [
 ]
 
 function futureMeeting(organisation, { date, agenda }) {
+  const responsible = organisation.relationshipOwner ?? pick(OWNERS)
   return {
     type: 'Meeting',
     occurredAt: Timestamp.fromDate(new Date(`${date}T00:00:00Z`)),
-    attendees: `${organisation.primaryContact.name}, ${organisation.relationshipOwner}`,
+    attendees: `${organisation.primaryContact.name}, ${responsible}`,
     agenda,
     notes: `${agenda} with ${organisation.name}.`,
     outcome: null,
@@ -473,7 +475,7 @@ function futureMeeting(organisation, { date, agenda }) {
     meetingLink: 'https://meet.example.org/fsc',
     documentLinks: [],
     actorUid: 'seed-script',
-    actorLabel: organisation.relationshipOwner,
+    actorLabel: responsible,
     // Booked at the organisation's last activity, so that stays unchanged.
     createdAt: organisation.lastActivityAt,
     deletedAt: null,
@@ -511,7 +513,7 @@ async function seed() {
       const due = o.nextActionDueAt ? o.nextActionDueAt.toDate().toISOString().slice(0, 10) : '—'
       console.log(
         `  ${o.name.padEnd(28)} ${o.type.padEnd(17)} ${o.pipelineStage.padEnd(20)} ` +
-          `owner ${o.relationshipOwner.padEnd(7)} due ${due}  ${activities.length} activities`
+          `owner ${(o.relationshipOwner ?? '—').padEnd(7)} due ${due}  ${activities.length} activities`
       )
     }
     const byStage = Object.fromEntries(PIPELINE_STAGES.map((s) => [s, 0]))
