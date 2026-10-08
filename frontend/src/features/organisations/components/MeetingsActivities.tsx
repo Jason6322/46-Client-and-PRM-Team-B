@@ -13,6 +13,7 @@ import {
   logActivity,
   setActivityArchived,
 } from '@/features/organisations/actions/organisations.actions'
+import { ActivityCalendar, dayKey } from '@/features/organisations/components/ActivityCalendar'
 import { ACTIVITY_TYPE_CLASSES, LOGGED_ACTIVITY_TYPES } from '@/features/organisations/constants'
 import {
   logActivityFormSchema,
@@ -22,6 +23,7 @@ import {
 import { cn, formatDate, formatDatetime } from '@/lib/utils'
 import {
   byOccurrence,
+  happenedAt,
   isLoggedActivity,
   type OrganisationActivity,
   type OrganisationListItem,
@@ -34,6 +36,9 @@ import {
  * Only hand-logged interactions are listed here. Automatic stage changes live
  * in the same subcollection but belong to the Pipeline tab, so the timeline
  * filters them out rather than mixing two kinds of entry.
+ *
+ * The calendar under the timeline marks the days with an interaction, and
+ * choosing one narrows the timeline to that day.
  */
 
 /**
@@ -67,17 +72,25 @@ export function MeetingsActivities({
   const organisationId = organisation.id
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const loggedAll = activities.filter(isLoggedActivity)
   // Read once on mount: "upcoming" only needs to be right to the minute, and a
   // stable value keeps re-renders from reshuffling the list.
   const [now] = useState(Date.now)
-  const { upcoming, past } = byOccurrence(
-    loggedAll.filter((activity) => activity.deletedAt === null),
-    now
-  )
-  const logged = [...upcoming, ...past]
+  const active = loggedAll.filter((activity) => activity.deletedAt === null)
+  const { upcoming, past } = byOccurrence(active, now)
   const upcomingIds = new Set(upcoming.map((activity) => activity.id))
   const archived = loggedAll.filter((activity) => activity.deletedAt !== null)
+
+  const activityDays = new Map<string, number>()
+  for (const activity of active) {
+    const key = dayKey(new Date(happenedAt(activity)))
+    activityDays.set(key, (activityDays.get(key) ?? 0) + 1)
+  }
+
+  const logged = [...upcoming, ...past].filter(
+    (activity) => selectedDay === null || dayKey(new Date(happenedAt(activity))) === selectedDay
+  )
 
   const setArchived = async (activity: OrganisationActivity, archive: boolean) => {
     setBusyId(activity.id)
@@ -169,161 +182,189 @@ export function MeetingsActivities({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card title="Interaction Timeline" className="self-start">
-        {logged.length === 0 ? (
-          <EmptyState
-            title="No interactions logged yet"
-            description="Meetings, calls, emails and notes appear here once logged."
-          />
-        ) : (
-          <ol className="space-y-3">
-            {logged.map((activity) => (
-              <li key={activity.id} className="rounded-lg bg-zinc-50 p-4">
-                <span
-                  className={cn(
-                    'inline-block rounded-full px-2.5 py-1 text-xs font-semibold',
-                    ACTIVITY_TYPE_CLASSES[activity.type]
+      <div className="space-y-6 self-start">
+        <Card title="Interaction Timeline">
+          {selectedDay !== null && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+              <span>Showing {formatDate(new Date(`${selectedDay}T12:00:00`))}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="text-brand-600 hover:text-brand-700 font-semibold transition-colors"
+              >
+                Show all
+              </button>
+            </div>
+          )}
+          {logged.length === 0 ? (
+            selectedDay !== null ? (
+              <EmptyState
+                title="Nothing logged on this day"
+                description="Choose another day on the calendar, or show all interactions."
+              />
+            ) : (
+              <EmptyState
+                title="No interactions logged yet"
+                description="Meetings, calls, emails and notes appear here once logged."
+              />
+            )
+          ) : (
+            <ol className="space-y-3">
+              {logged.map((activity) => (
+                <li key={activity.id} className="rounded-lg bg-zinc-50 p-4">
+                  <span
+                    className={cn(
+                      'inline-block rounded-full px-2.5 py-1 text-xs font-semibold',
+                      ACTIVITY_TYPE_CLASSES[activity.type]
+                    )}
+                  >
+                    {activity.type}
+                  </span>
+                  {upcomingIds.has(activity.id) && (
+                    <span className="bg-brand-50 text-brand-700 ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold">
+                      Upcoming
+                    </span>
                   )}
-                >
-                  {activity.type}
-                </span>
-                {upcomingIds.has(activity.id) && (
-                  <span className="bg-brand-50 text-brand-700 ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold">
-                    Upcoming
-                  </span>
-                )}
-                <p className="mt-2 text-xs text-zinc-500">
-                  {formatDate(new Date(activity.occurredAt ?? activity.createdAt))}
-                </p>
-                <p className="mt-1 text-sm text-zinc-900">
-                  {activity.notes ?? activity.agenda ?? 'No details recorded'}
-                </p>
-
-                {((activity.attendees && !activity.responsible) ||
-                  (activity.notes && activity.agenda) ||
-                  activity.outcome ||
-                  activity.actionItems ||
-                  activity.nextFollowUp) && (
-                  <dl className="mt-2 space-y-1 text-xs text-zinc-600">
-                    {/* The agenda is the headline only when there are no notes. */}
-                    {activity.notes && activity.agenda && (
-                      <div>
-                        <dt className="inline text-zinc-500">Agenda: </dt>
-                        <dd className="inline">{activity.agenda}</dd>
-                      </div>
-                    )}
-                    {/* With a responsible member, attendees join them in the footer. */}
-                    {activity.attendees && !activity.responsible && (
-                      <div>
-                        <dt className="inline text-zinc-500">Attendees: </dt>
-                        <dd className="inline">{activity.attendees}</dd>
-                      </div>
-                    )}
-                    {activity.outcome && (
-                      <div>
-                        <dt className="inline text-zinc-500">Outcome: </dt>
-                        <dd className="inline">{activity.outcome}</dd>
-                      </div>
-                    )}
-                    {activity.actionItems && (
-                      <div>
-                        <dt className="inline text-zinc-500">Action items: </dt>
-                        <dd className="inline">{activity.actionItems}</dd>
-                      </div>
-                    )}
-                    {activity.nextFollowUp && (
-                      <div>
-                        <dt className="inline text-zinc-500">Next follow-up: </dt>
-                        <dd className="inline">{activity.nextFollowUp}</dd>
-                      </div>
-                    )}
-                  </dl>
-                )}
-
-                {(activity.meetingLink || activity.documentLinks.length > 0) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {activity.meetingLink && (
-                      <a
-                        href={activity.meetingLink}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="text-brand-600 hover:text-brand-700 rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold transition-colors"
-                      >
-                        Join meeting
-                      </a>
-                    )}
-                    {activity.documentLinks.map((link) => (
-                      <a
-                        key={link}
-                        href={link}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        title={link}
-                        className="hover:text-brand-600 max-w-48 truncate rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-600 transition-colors"
-                      >
-                        {linkLabel(link)}
-                      </a>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="text-xs text-zinc-400">
-                    {activity.responsible && (
-                      <p className="text-zinc-500">
-                        Responsible: {activity.responsible}
-                        {activity.attendees && ` · With ${activity.attendees}`}
-                      </p>
-                    )}
-                    <p>
-                      {activity.responsible ? 'Logged by' : 'By'} {activity.actorLabel ?? 'Unknown'}{' '}
-                      · {formatDatetime(new Date(activity.createdAt))}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void setArchived(activity, true)}
-                    disabled={busyId === activity.id}
-                    className="shrink-0 text-xs font-medium text-zinc-500 transition-colors hover:text-red-600 disabled:opacity-60"
-                  >
-                    {busyId === activity.id ? 'Archiving...' : 'Archive'}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-
-        {archived.length > 0 && (
-          <details className="mt-4 border-t border-zinc-100 pt-4">
-            <summary className="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-800">
-              Archived ({archived.length})
-            </summary>
-            <ul className="mt-3 space-y-2">
-              {archived.map((activity) => (
-                <li
-                  key={activity.id}
-                  className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2"
-                >
-                  <span className="min-w-0 text-xs text-zinc-500">
-                    <span className="font-medium text-zinc-600">{activity.type}</span> ·{' '}
+                  <p className="mt-2 text-xs text-zinc-500">
                     {formatDate(new Date(activity.occurredAt ?? activity.createdAt))}
-                    {activity.notes && <span className="block truncate">{activity.notes}</span>}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void setArchived(activity, false)}
-                    disabled={busyId === activity.id}
-                    className="text-brand-600 hover:text-brand-700 shrink-0 text-xs font-semibold transition-colors disabled:opacity-60"
-                  >
-                    {busyId === activity.id ? 'Restoring...' : 'Restore'}
-                  </button>
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-900">
+                    {activity.notes ?? activity.agenda ?? 'No details recorded'}
+                  </p>
+
+                  {((activity.attendees && !activity.responsible) ||
+                    (activity.notes && activity.agenda) ||
+                    activity.outcome ||
+                    activity.actionItems ||
+                    activity.nextFollowUp) && (
+                    <dl className="mt-2 space-y-1 text-xs text-zinc-600">
+                      {/* The agenda is the headline only when there are no notes. */}
+                      {activity.notes && activity.agenda && (
+                        <div>
+                          <dt className="inline text-zinc-500">Agenda: </dt>
+                          <dd className="inline">{activity.agenda}</dd>
+                        </div>
+                      )}
+                      {/* With a responsible member, attendees join them in the footer. */}
+                      {activity.attendees && !activity.responsible && (
+                        <div>
+                          <dt className="inline text-zinc-500">Attendees: </dt>
+                          <dd className="inline">{activity.attendees}</dd>
+                        </div>
+                      )}
+                      {activity.outcome && (
+                        <div>
+                          <dt className="inline text-zinc-500">Outcome: </dt>
+                          <dd className="inline">{activity.outcome}</dd>
+                        </div>
+                      )}
+                      {activity.actionItems && (
+                        <div>
+                          <dt className="inline text-zinc-500">Action items: </dt>
+                          <dd className="inline">{activity.actionItems}</dd>
+                        </div>
+                      )}
+                      {activity.nextFollowUp && (
+                        <div>
+                          <dt className="inline text-zinc-500">Next follow-up: </dt>
+                          <dd className="inline">{activity.nextFollowUp}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+
+                  {(activity.meetingLink || activity.documentLinks.length > 0) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {activity.meetingLink && (
+                        <a
+                          href={activity.meetingLink}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="text-brand-600 hover:text-brand-700 rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold transition-colors"
+                        >
+                          Join meeting
+                        </a>
+                      )}
+                      {activity.documentLinks.map((link) => (
+                        <a
+                          key={link}
+                          href={link}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          title={link}
+                          className="hover:text-brand-600 max-w-48 truncate rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-600 transition-colors"
+                        >
+                          {linkLabel(link)}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className="text-xs text-zinc-400">
+                      {activity.responsible && (
+                        <p className="text-zinc-500">
+                          Responsible: {activity.responsible}
+                          {activity.attendees && ` · With ${activity.attendees}`}
+                        </p>
+                      )}
+                      <p>
+                        {activity.responsible ? 'Logged by' : 'By'}{' '}
+                        {activity.actorLabel ?? 'Unknown'} ·{' '}
+                        {formatDatetime(new Date(activity.createdAt))}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void setArchived(activity, true)}
+                      disabled={busyId === activity.id}
+                      className="shrink-0 text-xs font-medium text-zinc-500 transition-colors hover:text-red-600 disabled:opacity-60"
+                    >
+                      {busyId === activity.id ? 'Archiving...' : 'Archive'}
+                    </button>
+                  </div>
                 </li>
               ))}
-            </ul>
-          </details>
-        )}
-      </Card>
+            </ol>
+          )}
+
+          {archived.length > 0 && (
+            <details className="mt-4 border-t border-zinc-100 pt-4">
+              <summary className="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-800">
+                Archived ({archived.length})
+              </summary>
+              <ul className="mt-3 space-y-2">
+                {archived.map((activity) => (
+                  <li
+                    key={activity.id}
+                    className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2"
+                  >
+                    <span className="min-w-0 text-xs text-zinc-500">
+                      <span className="font-medium text-zinc-600">{activity.type}</span> ·{' '}
+                      {formatDate(new Date(activity.occurredAt ?? activity.createdAt))}
+                      {activity.notes && <span className="block truncate">{activity.notes}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void setArchived(activity, false)}
+                      disabled={busyId === activity.id}
+                      className="text-brand-600 hover:text-brand-700 shrink-0 text-xs font-semibold transition-colors disabled:opacity-60"
+                    >
+                      {busyId === activity.id ? 'Restoring...' : 'Restore'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </Card>
+
+        <ActivityCalendar
+          activityDays={activityDays}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDay}
+        />
+      </div>
 
       <Card title="Log New Meeting / Activity" className="self-start">
         <form className="space-y-4" onSubmit={onSubmit} noValidate>
