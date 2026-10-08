@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, Search, User } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 
@@ -84,6 +84,17 @@ export function TopNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/search"
+            aria-label="Search and filter"
+            aria-current={pathname === '/search' ? 'page' : undefined}
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-white/10 hover:text-white',
+              pathname === '/search' ? 'bg-white/10 text-white' : 'text-zinc-400'
+            )}
+          >
+            <Search className="h-4 w-4" />
+          </Link>
           <Link
             href="/profile"
             className="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-white/10"
