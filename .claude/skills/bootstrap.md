@@ -23,16 +23,16 @@ If either is missing or too old, stop and tell the user what to install.
 pnpm install
 ```
 
-| If you see | Fix |
-|------------|-----|
+| If you see                                          | Fix                                                                                                                                                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ERR_PNPM_IGNORED_BUILDS` / "Ignored build scripts" | `pnpm-workspace.yaml` must contain an `allowBuilds:` map with `'@firebase/util'`, `esbuild`, `lefthook`, `protobufjs`, `sharp`, `unrs-resolver` all set to `true`. Fix it, re-run `pnpm install`. |
-| `'next' is not recognized` later | Re-run `pnpm install` from the **repo root**. |
+| `'next' is not recognized` later                    | Re-run `pnpm install` from the **repo root**.                                                                                                                                                     |
 
 Confirm Lefthook hooks installed (install output shows `sync hooks: ✔️`).
 
 ## Step 3 — The one env file
 
-All configuration lives in the **root `.env`** (never edit `frontend/.env.local` / `backend/.env` — they are generated).
+All configuration lives in the **root `.env`** (never edit `frontend/.env.local` — it is generated).
 
 1. If `.env` does not exist: `cp .env.example .env`
 2. Ask the user if they already have a Firebase project for this repo. If not, walk them through:
@@ -47,7 +47,7 @@ All configuration lives in the **root `.env`** (never edit `frontend/.env.local`
 4. `.firebaserc` → `projects.default` must equal `NEXT_PUBLIC_FIREBASE_PROJECT_ID`.
 5. `pnpm run env:sync`
 
-Verify: `frontend/.env.local` and `backend/.env` exist and contain the values from `.env` (`NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64`, etc).
+Verify: `frontend/.env.local` exists and contains the values from `.env` (`NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64`, etc).
 
 ## Step 4 — Start the app
 

@@ -53,7 +53,7 @@
           {
             "type": "command",
             "description": "Inject project stack reminder at session start",
-            "command": "echo 'Stack: Next.js 16 + Firebase + pnpm workspaces. Always use pnpm. Check frontend/CLAUDE.md and backend/CLAUDE.md for package-specific rules. See docs/DESIGN.md for UI conventions.'"
+            "command": "echo 'Stack: Next.js 16 + Firebase + pnpm workspaces. Always use pnpm. Check frontend/CLAUDE.md for package-specific rules. See docs/DESIGN.md for UI conventions.'"
           }
         ]
       }
@@ -65,7 +65,7 @@
           {
             "type": "command",
             "description": "ESLint auto-fix for TypeScript files",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx) PKGDIR=$(echo \"$CLAUDE_FILE_PATH\" | grep -oE '^.*(frontend|backend)/') && [ -n \"$PKGDIR\" ] && cd \"$PKGDIR\" && npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>&1 | grep -E '(error|warning)' || true ;; esac"
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx) PKGDIR=$(echo \"$CLAUDE_FILE_PATH\" | grep -oE '^.*frontend/') && [ -n \"$PKGDIR\" ] && cd \"$PKGDIR\" && npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>&1 | grep -E '(error|warning)' || true ;; esac"
           },
           {
             "type": "command",
@@ -101,11 +101,6 @@
             "type": "command",
             "description": "TypeScript typecheck after frontend source changes",
             "command": "if echo \"$CLAUDE_FILE_PATH\" | grep -q 'frontend/src/'; then cd frontend && npx tsc --noEmit 2>&1 | tail -5 | grep -q 'error' && { echo 'TYPECHECK FAILED:' >&2; npx tsc --noEmit 2>&1 | grep 'error TS' | head -10 >&2; exit 2; } || true; fi"
-          },
-          {
-            "type": "command",
-            "description": "TypeScript typecheck after backend source changes",
-            "command": "if echo \"$CLAUDE_FILE_PATH\" | grep -q 'backend/src/'; then cd backend && npx tsc --noEmit 2>&1 | tail -5 | grep -q 'error' && { echo 'TYPECHECK FAILED:' >&2; npx tsc --noEmit 2>&1 | grep 'error TS' | head -10 >&2; exit 2; } || true; fi"
           }
         ]
       }

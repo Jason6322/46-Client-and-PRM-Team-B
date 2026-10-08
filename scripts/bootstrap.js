@@ -86,7 +86,7 @@ console.log(`
 └─────────────────────────────────────────────────────────────────
 
   All env values live in ONE file: the root .env
-  (frontend/.env.local and backend/.env are generated — never edit them)
+  (frontend/.env.local is generated — never edit it)
 
   1. Create a free Firebase project: https://console.firebase.google.com
      (Spark plan is fine — no billing required)

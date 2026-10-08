@@ -12,10 +12,10 @@ Check for drift between skills, docs, and actual code.
 
 For each skill in `.claude/skills/`, check that:
 
-1. **Code examples** match actual patterns in `frontend/src/` and `backend/src/` — imports, function signatures, return types, error handling conventions
+1. **Code examples** match actual patterns in `frontend/src/` — imports, function signatures, return types, error handling conventions
 2. **File references** still exist and have the expected structure
 3. **"Do NOT" rules** are consistent with `CLAUDE.md` conventions
-4. **Package names and APIs** are consistent with `frontend/package.json` and `backend/package.json`
+4. **Package names and APIs** are consistent with `frontend/package.json`
 
 For each doc in `docs/`, check that:
 
@@ -39,7 +39,7 @@ For `CLAUDE.md`, check that:
 5. Check that `frontend/src/lib/firebase/admin.ts` uses `server-only`, matches the admin SDK pattern in docs
 6. Check that `frontend/src/lib/firebase/client.ts` singleton pattern matches documented examples
 7. Check that `frontend/src/middleware.ts` or `frontend/src/proxy.ts` (Next.js 16+) matches documented auth flow
-8. Check that `backend/src/middleware/auth.ts` and `backend/src/middleware/errorHandler.ts` match documented patterns
+8. Check that `frontend/src/lib/api/bearer.ts` and `frontend/src/lib/api/problem.ts` match documented API Route Handler patterns
 9. Cross-check that all skills reference correct file paths for this repo structure
 
 ## Report format

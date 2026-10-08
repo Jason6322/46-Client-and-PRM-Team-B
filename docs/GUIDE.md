@@ -6,16 +6,13 @@ This guide takes you from a fresh clone to shipping your first feature. No prior
 
 [![Watch the video](https://img.youtube.com/vi/_83ix3JecpY/maxresdefault.jpg)](https://youtu.be/_83ix3JecpY)
 
-
-
 ---
 
 ## 1. Understand what you're working with
 
-The app has two halves plus a shared Firebase project:
+The app is one Next.js project plus a shared Firebase project:
 
-- **`frontend/`** — a Next.js website. Pages live in `frontend/src/app/`. Most pages render on the server (fast, secure); interactive parts run in the browser.
-- **`backend/`** — an Express API deployed as one Firebase Cloud Function. You only need it for logic that shouldn't live in the frontend (webhooks, heavy processing, third-party API calls with secrets). Many features never touch it.
+- **`frontend/`** — a Next.js website that is also the backend. Pages live in `frontend/src/app/`. Most pages render on the server (fast, secure); interactive parts run in the browser. Reads and writes go through Server Actions; anything that needs a plain HTTP URL (webhooks, other clients) is a Route Handler under `frontend/src/app/api/`.
 - **Firebase** — handles sign-in (Auth) and the database (Firestore). There's no local emulator — dev, staging, and production all talk to real Firebase projects (use a separate free project for local dev so you're not testing against production data).
 
 See the diagrams in [ARCHITECTURE.md](ARCHITECTURE.md) for how these connect.
@@ -32,10 +29,10 @@ See the diagrams in [ARCHITECTURE.md](ARCHITECTURE.md) for how these connect.
 
 Install once:
 
-| Tool | How |
-|------|-----|
+| Tool       | How                              |
+| ---------- | -------------------------------- |
 | Node.js 22 | [nodejs.org](https://nodejs.org) |
-| pnpm | `npm install -g pnpm` |
+| pnpm       | `npm install -g pnpm`            |
 
 Then from the repo root:
 
@@ -49,7 +46,7 @@ This installs dependencies, creates the root `.env` from the template, and gener
 
 ### Connect a Firebase project
 
-**All env values live in one file: the root `.env`.** (`frontend/.env.local` and `backend/.env` are generated from it — never edit those.)
+**All env values live in one file: the root `.env`.** (`frontend/.env.local` is generated from it — never edit it.)
 
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com) — the free **Spark plan** is enough, no billing required
 2. Enable **Authentication** (Email/Password + Google) and create a **Firestore** database
@@ -64,7 +61,8 @@ After changing anything in `.env`, run `pnpm run env:sync` (or just restart `pnp
 ```bash
 pnpm run dev
 ```
-If you are still having problems you can also try this copy and paste guide [COPY-PASTE-SETUP.md](COPY-PASTE-SETUP.md) 
+
+If you are still having problems you can also try this copy and paste guide [COPY-PASTE-SETUP.md](COPY-PASTE-SETUP.md)
 
 - App: [http://localhost:3000](http://localhost:3000)
 
@@ -73,40 +71,37 @@ Create an account via the sign-up page and check the Firebase console (Authentic
 ---
 
 # PART 2 Develop the notes taking feature
+
 - [COPY-PASTE-FEATURE.md](COPY-PASTE-FEATURE.md) — Part 2, pure copy-paste, no AI: build the feature, branch, commit, PR
-
-
-
-
 
 ## 5. Where things go — cheat sheet
 
-| I want to… | Put it in… | Skill |
-|-----------|-----------|-------|
-| Add a page | `frontend/src/app/(dashboard)/…` or `(auth)/…` | `/new-page` |
-| Add a business feature | `frontend/src/features/{name}/` | `/new-feature` |
-| Add a reusable component | `frontend/src/components/shared/` | `/new-component` |
-| Add a database collection | types + firestore.ts + rules + schema doc | `/firebase-collection` |
-| Change a collection's fields | (guided migration) | `/evolve-schema` |
-| Add an API endpoint | `backend/src/routes/` | `/add-route` |
-| Add a config value | `.env.example` + `docs/ENV-VARS.md` | `/add-env-var` |
-| Add Google/GitHub/Apple sign-in | `frontend/src/lib/firebase/auth.ts` + button | `/add-auth-provider` |
+| I want to…                      | Put it in…                                                              | Skill                  |
+| ------------------------------- | ----------------------------------------------------------------------- | ---------------------- |
+| Add a page                      | `frontend/src/app/(dashboard)/…` or `(auth)/…`                          | `/new-page`            |
+| Add a business feature          | `frontend/src/features/{name}/`                                         | `/new-feature`         |
+| Add a reusable component        | `frontend/src/components/shared/`                                       | `/new-component`       |
+| Add a database collection       | types + firestore.ts + rules + schema doc                               | `/firebase-collection` |
+| Change a collection's fields    | (guided migration)                                                      | `/evolve-schema`       |
+| Add an API endpoint             | `frontend/src/app/api/{name}/route.ts` (use `verifyBearer` + `problem`) | —                      |
+| Add a config value              | `.env.example` + `docs/ENV-VARS.md`                                     | `/add-env-var`         |
+| Add Google/GitHub/Apple sign-in | `frontend/src/lib/firebase/auth.ts` + button                            | `/add-auth-provider`   |
 
 ---
 
 ## 6. Common pitfalls
 
-| Symptom | Cause & fix |
-|---------|-------------|
-| `auth/invalid-api-key` on startup | `NEXT_PUBLIC_FIREBASE_*` values are empty in the root `.env`. Paste them from the Firebase web app config, then **restart** the dev server (it re-syncs env automatically). |
-| "Firebase web config is incomplete" on Vercel | A `NEXT_PUBLIC_FIREBASE_*` env var is missing in Vercel's project settings. Add it (same name as your root `.env`), then redeploy — Vercel doesn't retroactively apply new env vars to existing deployments. |
-| Changed an env var, nothing happened | Edit the root `.env` (not the generated files), then restart `pnpm run dev` — `NEXT_PUBLIC_*` values are baked in at startup. |
-| Edited `frontend/.env.local` or `backend/.env` and it got overwritten | Those files are generated. Make the change in the root `.env` instead. |
-| "Missing or insufficient permissions" from Firestore | Your security rules don't allow the read/write. Add rules for the collection in `firebase/firestore.rules`, then deploy them: `npx firebase-tools deploy --only firestore:rules`. |
-| `Invalid project id: REPLACE_WITH_...` | Set your real project id in `.firebaserc`. |
-| Imported `firebase/firestore` in a page and it crashed | Client SDK in a Server Component. Use `@/lib/firebase/admin` on the server, or move the code into a `'use client'` component. |
-| Hook/`useState` error in a page | The file needs `'use client'` at the top — or better, move the interactive part into its own small Client Component. |
-| Commit rejected | The message isn't Conventional Commits format. Use `feat: …`, `fix: …`, `docs: …` etc. |
+| Symptom                                                | Cause & fix                                                                                                                                                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth/invalid-api-key` on startup                      | `NEXT_PUBLIC_FIREBASE_*` values are empty in the root `.env`. Paste them from the Firebase web app config, then **restart** the dev server (it re-syncs env automatically).                                  |
+| "Firebase web config is incomplete" on Vercel          | A `NEXT_PUBLIC_FIREBASE_*` env var is missing in Vercel's project settings. Add it (same name as your root `.env`), then redeploy — Vercel doesn't retroactively apply new env vars to existing deployments. |
+| Changed an env var, nothing happened                   | Edit the root `.env` (not the generated files), then restart `pnpm run dev` — `NEXT_PUBLIC_*` values are baked in at startup.                                                                                |
+| Edited `frontend/.env.local` and it got overwritten    | That file is generated. Make the change in the root `.env` instead.                                                                                                                                          |
+| "Missing or insufficient permissions" from Firestore   | Your security rules don't allow the read/write. Add rules for the collection in `firebase/firestore.rules`, then deploy them: `npx firebase-tools deploy --only firestore:rules`.                            |
+| `Invalid project id: REPLACE_WITH_...`                 | Set your real project id in `.firebaserc`.                                                                                                                                                                   |
+| Imported `firebase/firestore` in a page and it crashed | Client SDK in a Server Component. Use `@/lib/firebase/admin` on the server, or move the code into a `'use client'` component.                                                                                |
+| Hook/`useState` error in a page                        | The file needs `'use client'` at the top — or better, move the interactive part into its own small Client Component.                                                                                         |
+| Commit rejected                                        | The message isn't Conventional Commits format. Use `feat: …`, `fix: …`, `docs: …` etc.                                                                                                                       |
 
 More troubleshooting lives in the [README](../README.md#troubleshooting).
 
@@ -118,16 +113,15 @@ Local dev talks to your Firebase project already — going live just means putti
 
 ## 8. Going further
 
-
 - [COPY-PASTE-SETUP.md](COPY-PASTE-SETUP.md) — Part 1, pure copy-paste, no AI: install, connect Firebase, run
 - [COPY-PASTE-FEATURE.md](COPY-PASTE-FEATURE.md) — Part 2, pure copy-paste, no AI: build the feature, branch, commit, PR
 - [DEPLOY-TO-VERCEL.md](DEPLOY-TO-VERCEL.md) — step-by-step guide to taking your app live on Vercel
 - [garage-boilerplate-guide.pptx](garage-boilerplate-guide.pptx) — slide deck covering the whole system, including how the AI tooling fits in
 - [notes-feature-tutorial.pptx](notes-feature-tutorial.pptx) — this walkthrough as a slide deck, one step per slide
 - [ARCHITECTURE.md](ARCHITECTURE.md) — diagrams and the reasoning behind the design
-- [FRONTEND.md](FRONTEND.md) / [BACKEND.md](BACKEND.md) — per-package conventions
+- [FRONTEND.md](FRONTEND.md) — frontend conventions
 - [DESIGN.md](DESIGN.md) — colors, typography, component patterns
 - [SECURITY.md](SECURITY.md) — the full security model, layer by layer
 - [TESTING.md](TESTING.md) — what to test and how
 - [GIT-WORKFLOW.md](GIT-WORKFLOW.md) — branches, merges, releases
-- [CI-CD.md](CI-CD.md) — deployment in full: Vercel, Firestore rules, the optional backend
+- [CI-CD.md](CI-CD.md) — deployment in full: Vercel and Firestore rules

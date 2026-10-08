@@ -4,83 +4,32 @@
 
 Security is enforced in layers — each layer is independent so a failure in one does not collapse the others.
 
-| Layer | Mechanism |
-|-------|-----------|
-| Claude Code | Deny rules, PreToolUse/PostToolUse hooks |
-| HTTP | helmet headers, CORS policy, rate limiting, body size cap |
-| Auth | Firebase token verification, session cookies |
-| API | Zod input validation, per-user access control |
-| Data | Firestore security rules (default deny, field allowlists) |
-| CI | `pnpm audit --audit-level=high` on every PR |
-| Dependencies | Dependabot weekly PRs for backend, frontend, and Actions |
+| Layer        | Mechanism                                                 |
+| ------------ | --------------------------------------------------------- |
+| Claude Code  | Deny rules, PreToolUse/PostToolUse hooks                  |
+| HTTP         | Security headers in `next.config.ts`                      |
+| Auth         | Firebase token verification, session cookies              |
+| API          | Zod input validation, per-user access control             |
+| Data         | Firestore security rules (default deny, field allowlists) |
+| CI           | `pnpm audit --audit-level=high` on every PR               |
+| Dependencies | Dependabot weekly PRs for npm packages and Actions        |
 
 There's no automated secret scanner in this boilerplate. Never commit `.env`, service account JSON, or any real API key — `.env` is gitignored and `.env.example` ships with empty values for exactly this reason.
 
 ---
 
-## HTTP Security (Backend)
-
-### Headers — `helmet`
-
-`helmet()` is the first middleware in `backend/src/app.ts`. It sets:
-
-| Header | Value | Protection |
-|--------|-------|------------|
-| `X-Content-Type-Options` | `nosniff` | MIME-type sniffing |
-| `X-Frame-Options` | `SAMEORIGIN` | Clickjacking |
-| `X-DNS-Prefetch-Control` | `off` | DNS prefetch leakage |
-| `Strict-Transport-Security` | `max-age=15552000` | Downgrade attacks |
-| `Referrer-Policy` | `no-referrer` | Referrer leakage |
-| `X-Download-Options` | `noopen` | IE download exploit |
-| `X-Permitted-Cross-Domain-Policies` | `none` | Flash/Acrobat cross-domain |
-
-### CORS
-
-```typescript
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? false }))
-```
-
-`false` is the default — all cross-origin requests are denied unless `CORS_ORIGIN` is explicitly set. Set it in `backend/.env` / Cloud Functions environment config:
-```bash
-CORS_ORIGIN=https://your-app.web.app
-```
-
-Do not set `CORS_ORIGIN=*` in production.
-
-### Rate Limiting
-
-Global limiter: 300 requests per 15 minutes per IP address. Responses use RFC 9457 format with `status: 429`.
-
-Add per-endpoint tighter limits on sensitive operations (auth flows, writes):
-```typescript
-import rateLimit from 'express-rate-limit'
-
-const strictLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-})
-
-router.post('/sensitive-action', strictLimiter, handler)
-```
-
-### Body Size
-
-Request body is capped at `1mb` (`express.json({ limit: '1mb' })`). Routes that accept file uploads must handle their own higher limit on the specific route only — do not raise the global limit.
-
----
-
-## HTTP Security (Frontend)
+## HTTP Security
 
 Security headers are set in `next.config.ts` for all routes:
 
-| Header | Value |
-|--------|-------|
-| `X-Content-Type-Options` | `nosniff` |
-| `X-Frame-Options` | `DENY` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | camera, microphone, geolocation, browsing-topics all disabled |
+| Header                   | Value                                                         |
+| ------------------------ | ------------------------------------------------------------- |
+| `X-Content-Type-Options` | `nosniff`                                                     |
+| `X-Frame-Options`        | `DENY`                                                        |
+| `Referrer-Policy`        | `strict-origin-when-cross-origin`                             |
+| `Permissions-Policy`     | camera, microphone, geolocation, browsing-topics all disabled |
+
+There is no CORS configuration: Route Handlers are same-origin with the UI, and Next.js sends no `Access-Control-Allow-Origin` header, so browsers block cross-origin reads by default. There is also no built-in rate limiting — if an endpoint needs it, use the Vercel Firewall (project → Firewall) or add a limiter inside the handler.
 
 **Content Security Policy (CSP)** is an opt-in per project — it requires nonce injection in `proxy.ts` and a tuned `script-src` for each project's third-party scripts. See Next.js CSP docs when adding it to a client project.
 
@@ -88,18 +37,18 @@ Security headers are set in `next.config.ts` for all routes:
 
 ## Authentication
 
-### Backend token flow
+### Route Handler token flow
 
 ```
 Client → Authorization: Bearer <Firebase ID token>
          ↓
-authMiddleware → verifyToken(token) → AuthUser { uid, email, claims }
-                 ↓
-Route handler → (req as AuthenticatedRequest).user.uid
+verifyBearer(req) → adminAuth.verifyIdToken() → BearerUser { uid, email } | null
+         ↓
+Route Handler → null? return unauthorized() : use user.uid
 ```
 
 - Tokens expire after 1 hour — the client SDK auto-refreshes via `getIdToken()`
-- The `verifyToken` function is injected — pass a mock to `createApp()` in tests without touching Firebase
+- In tests, mock `@/lib/api/bearer` rather than touching Firebase
 - Invalid or expired tokens always return `401 Unauthorized` with RFC 9457 format
 
 ### Frontend session flow
@@ -122,6 +71,7 @@ Server Actions: requireAuth() → adminAuth.verifySessionCookie(cookie, true)
 ### Revoking sessions
 
 To force-sign-out a user:
+
 1. `adminAuth.revokeRefreshTokens(uid)` — revokes all tokens
 2. Delete the Firestore `users/{uid}` session record if used
 3. Subsequent `verifySessionCookie(cookie, true)` calls will return 401
@@ -130,22 +80,28 @@ To force-sign-out a user:
 
 ## Input Validation
 
-All route handlers validate `req.body` with Zod before use. Use `.strict()` to reject unknown fields (prevents mass assignment):
+Every Server Action and Route Handler validates its input with Zod before use. Use `.strict()` to reject unknown fields (prevents mass assignment):
 
 ```typescript
-const schema = z.object({
-  title: z.string().min(1).max(200),
-  content: z.string().min(1),
-}).strict()  // rejects any fields not listed above
+const schema = z
+  .object({
+    title: z.string().min(1).max(200),
+    content: z.string().min(1),
+  })
+  .strict(); // rejects any fields not listed above
 
-const parsed = schema.safeParse(req.body)
+const parsed = schema.safeParse(await req.json());
 if (!parsed.success) {
-  return next(HttpError.badRequest(parsed.error.errors[0]?.message ?? 'Invalid input'))
+  return problem(
+    400,
+    "Bad Request",
+    parsed.error.issues[0]?.message ?? "Invalid input",
+  );
 }
 // use parsed.data — fully typed, no unknown fields
 ```
 
-Never access `req.body.field` directly without a preceding Zod parse.
+Never use request or form data without a preceding Zod parse.
 
 ---
 
@@ -154,12 +110,18 @@ Never access `req.body.field` directly without a preceding Zod parse.
 Errors use RFC 9457 Problem Details format — no stack traces, no internal details leak to the client:
 
 ```json
-{ "type": "https://httpstatuses.io/404", "title": "Not Found", "status": 404, "detail": "User 'abc' not found" }
+{
+  "type": "https://httpstatuses.io/404",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "User 'abc' not found"
+}
 ```
 
-- `HttpError` (`backend/src/lib/errors.ts`) is the only error type that reaches the client
-- Unknown errors log server-side and return `500` with a generic message — never expose stack traces
-- `console.error` (not `console.log`) is used for error logging — the conventions test blocks `console.log`
+- Route Handlers return errors only via `problem()` / `unauthorized()` (`frontend/src/lib/api/problem.ts`)
+- Server Actions return `{ success: false, error }` with a safe message
+- Unknown errors log server-side and return a generic message — never expose stack traces
+- Use `console.error` (not `console.log`) for error logging
 
 ---
 
@@ -179,16 +141,17 @@ Rules in `firebase/firestore.rules` are the **last line of defence**. Write rule
 ### Helper functions
 
 ```javascript
-isAuthenticated()      // request.auth != null && uid != null
-isOwner(uid)           // isAuthenticated() && request.auth.uid == uid
-isAdmin()              // reads users/{uid}.role == 'admin' (one Firestore read)
-hasCustomClaim(claim)  // request.auth.token[claim] == true (no Firestore read — use for performance)
-notDeleted()           // deletedAt field is null or absent
+isAuthenticated(); // request.auth != null && uid != null
+isOwner(uid); // isAuthenticated() && request.auth.uid == uid
+isAdmin(); // reads users/{uid}.role == 'admin' (one Firestore read)
+hasCustomClaim(claim); // request.auth.token[claim] == true (no Firestore read — use for performance)
+notDeleted(); // deletedAt field is null or absent
 ```
 
 Use `hasCustomClaim('admin')` in high-read collections to avoid the Firestore read that `isAdmin()` triggers. Set custom claims via Admin SDK:
+
 ```typescript
-await adminAuth.setCustomUserClaims(uid, { admin: true })
+await adminAuth.setCustomUserClaims(uid, { admin: true });
 ```
 
 ### Deploying rules
@@ -206,30 +169,24 @@ Never deploy rules from a local machine in production — use the CI deploy work
 `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` is a base64-encoded service account JSON.
 
 **Rules:**
+
 - Never commit this value to version control
 - Never use a `NEXT_PUBLIC_` prefix (exposes it to the browser)
-- Store in Cloud Functions environment config for production
+- Store in Vercel environment variables for production
 - Store as a GitHub Actions secret for CI/CD
 - Rotate immediately if accidentally exposed: Firebase Console → Project Settings → Service Accounts → Revoke key
-
-**GCP Secret Manager (recommended for production):**
-```typescript
-// Instead of env var, fetch from Secret Manager at cold start
-import { SecretManagerServiceClient } from '@google-cloud/secret-manager'
-```
-Document this as a per-client hardening step in the forking guide.
 
 ---
 
 ## Environment Variables
 
-| Classification | Rule |
-|----------------|------|
-| `NEXT_PUBLIC_*` | Safe for the browser — Firebase client config only |
-| Server secrets | Never use `NEXT_PUBLIC_` prefix — enforced by Claude Code hook |
-| `.env.local` / `.env` | Gitignored — never commit |
-| `.env.example` | Committed with empty values — safe |
-| `*.pem`, `*.p12`, `*.key` | Blocked from Claude Code reads via `permissions.deny` |
+| Classification            | Rule                                                           |
+| ------------------------- | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_*`           | Safe for the browser — Firebase client config only             |
+| Server secrets            | Never use `NEXT_PUBLIC_` prefix — enforced by Claude Code hook |
+| `.env.local` / `.env`     | Gitignored — never commit                                      |
+| `.env.example`            | Committed with empty values — safe                             |
+| `*.pem`, `*.p12`, `*.key` | Blocked from Claude Code reads via `permissions.deny`          |
 
 ---
 
@@ -245,7 +202,7 @@ pnpm audit --audit-level=high
 pnpm audit --fix
 ```
 
-Dependabot opens weekly PRs for outdated packages in `/backend`, `/frontend`, and GitHub Actions workflows (`.github/dependabot.yml`).
+Dependabot opens weekly PRs for outdated npm packages (scanned from the workspace root so `pnpm-lock.yaml` is updated too; major versions are skipped) and GitHub Actions workflows (`.github/dependabot.yml`).
 
 ---
 
@@ -253,15 +210,15 @@ Dependabot opens weekly PRs for outdated packages in `/backend`, `/frontend`, an
 
 The `.claude/settings.json` hooks enforce security patterns automatically:
 
-| Hook | What it blocks |
-|------|---------------|
-| `permissions.deny` | `rm -rf`, force push, `--no-verify`, `npm`/`yarn`, `curl \| bash`, `wget \| bash`, reading `~/.ssh/**`, `~/.aws/**`, `*.pem`, `*.p12`, `*.key` |
-| PostToolUse — `any` block | TypeScript `any` in all forms: `: any`, `as any`, `any[]`, `Promise<any>`, `Record<string, any>` |
-| PostToolUse — secret prefix | `NEXT_PUBLIC_` on service accounts, admin keys, or private keys |
-| PostToolUse — env files | Blocks writing `.env.local`, `.env.production`, `.env.staging` (only `.env.example` is safe) |
-| PostToolUse — admin.ts | Blocks `'use client'` in `lib/firebase/admin.ts` |
-| PreToolUse — firebase deploy | Blocks `firebase deploy` — requires explicit user approval |
-| PreToolUse — git push | Blocks direct pushes to `main` |
+| Hook                         | What it blocks                                                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `permissions.deny`           | `rm -rf`, force push, `--no-verify`, `npm`/`yarn`, `curl \| bash`, `wget \| bash`, reading `~/.ssh/**`, `~/.aws/**`, `*.pem`, `*.p12`, `*.key` |
+| PostToolUse — `any` block    | TypeScript `any` in all forms: `: any`, `as any`, `any[]`, `Promise<any>`, `Record<string, any>`                                               |
+| PostToolUse — secret prefix  | `NEXT_PUBLIC_` on service accounts, admin keys, or private keys                                                                                |
+| PostToolUse — env files      | Blocks writing `.env.local`, `.env.production`, `.env.staging` (only `.env.example` is safe)                                                   |
+| PostToolUse — admin.ts       | Blocks `'use client'` in `lib/firebase/admin.ts`                                                                                               |
+| PreToolUse — firebase deploy | Blocks `firebase deploy` — requires explicit user approval                                                                                     |
+| PreToolUse — git push        | Blocks direct pushes to `main`                                                                                                                 |
 
 ---
 
@@ -271,25 +228,13 @@ These are not enabled by default because they require per-project configuration:
 
 ### Firebase App Check
 
-Prevents non-app clients (curl, scanners) from calling the API:
-
-```typescript
-// backend/src/index.ts
-export const api = onRequest(
-  { enforceAppCheck: true, consumeAppCheckToken: true, ... },
-  app
-)
-```
+Prevents non-app clients (curl, scanners) from calling Firebase services. Enforce it per service in Firebase Console → App Check.
 
 Requires App Check initialization in the frontend Firebase SDK. Document the setup steps before enabling on a client project.
 
 ### Content Security Policy
 
 Blocks XSS by restricting which scripts can execute. Requires nonce injection in `proxy.ts` — see the Next.js CSP guide. The `script-src` directive must be tuned to each project's third-party scripts (Google Analytics, Intercom, etc.).
-
-### GCP Secret Manager
-
-Replaces environment variable secrets with Secret Manager references. Recommended for projects with strict compliance requirements (SOC 2, ISO 27001, healthcare).
 
 ### Email Enumeration Protection
 
@@ -298,6 +243,7 @@ Enable in Firebase Auth: Authentication → Settings → Email enumeration prote
 ### Firestore Field-Level Validation
 
 Add `request.resource.data.size() == N` and field-type checks on write rules for collections that store sensitive data:
+
 ```javascript
 allow create: if request.resource.data.keys().hasOnly(['title', 'uid', '_schemaVersion'])
   && request.resource.data.title is string

@@ -2,11 +2,9 @@
 
 ## Test Layers
 
-| Layer | Command | Tool | Firebase | Description |
-|-------|---------|------|----------|-------------|
-| Frontend unit | `pnpm run test:component` | Vitest + Testing Library | Mocked | Utils, hooks, components |
-| Backend unit | `pnpm run test` | Vitest + supertest | Mocked | Route handlers, middleware |
-| All | `pnpm run test:all` | — | — | Runs all layers |
+| Layer | Command         | Tool                     | Firebase | Description                                              |
+| ----- | --------------- | ------------------------ | -------- | -------------------------------------------------------- |
+| Unit  | `pnpm run test` | Vitest + Testing Library | Mocked   | Utils, hooks, components, Server Actions, Route Handlers |
 
 There's no local emulator, so there's no integration-test layer against a real Firestore — all tests mock Firebase and never make real network calls.
 
@@ -14,17 +12,13 @@ There's no local emulator, so there's no integration-test layer against a real F
 
 ```bash
 # Run all tests
-pnpm run test:all
+pnpm run test
 
-# Watch mode (frontend)
+# Watch mode
 pnpm --filter frontend run test:watch
-
-# Watch mode (backend)
-pnpm --filter backend run test:watch
 
 # Coverage
 pnpm --filter frontend run test:coverage
-pnpm --filter backend run test:coverage
 ```
 
 ## What to Test
@@ -36,30 +30,16 @@ pnpm --filter backend run test:coverage
 - **Skip:** `src/app/` page files (test via integration or E2E)
 - Firebase is always mocked via `tests/setup.ts` — never call real Firebase in unit tests
 
-### Backend
+### API Route Handlers
 
-- **Unit tests:** Each route handler tested with supertest; Firebase Admin is mocked
-- Every new route created via `/add-route` skill must have at minimum: 200/201 happy path + 401 without token
+- Call the exported `GET`/`POST` directly with a `NextRequest`; mock `@/lib/api/bearer` and Firebase Admin
+- Every protected route needs at minimum: 200/201 happy path + 401 without token
 
 ## Mocking Firebase
 
-**Frontend** (`frontend/tests/setup.ts`):
+`frontend/tests/setup.ts`:
+
 ```typescript
 vi.mock('@/lib/firebase/client', () => ({ auth: ..., db: {} }))
 vi.mock('@/lib/firebase/admin', () => ({ adminAuth: { verifySessionCookie: vi.fn() }, ... }))
-```
-
-**Backend** (`backend/tests/setup.ts`) mocks `src/lib/firebase` so the Admin SDK never initializes, and exports reusable auth mocks. Auth is injected per-app, not patched globally:
-
-```typescript
-import { createApp } from '../../../src/app'
-import { mockVerifyToken, mockUser } from '../../setup'
-
-const app = createApp({ verifyToken: mockVerifyToken })
-
-// Authenticated request:
-vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-
-// Unauthenticated request:
-vi.mocked(mockVerifyToken).mockRejectedValue(new Error('invalid'))
 ```

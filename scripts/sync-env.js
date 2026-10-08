@@ -3,15 +3,12 @@
  * Single source of truth for environment variables.
  *
  * You edit ONE file — the root `.env` — and this script generates the
- * per-package files the toolchains insist on reading from their own dirs:
+ * file Next.js insists on reading from its own dir:
  *
  *   .env  ──►  frontend/.env.local   (read by Next.js)
- *         ──►  backend/.env          (read by the Firebase Functions CLI)
  *
- * Every variable keeps the exact same name in .env, frontend/.env.local, and
- * backend/.env — including NEXT_PUBLIC_FIREBASE_PROJECT_ID, which both
- * frontend and backend read under that one name. Nothing gets renamed
- * in between, so there's nothing to keep in sync by hand.
+ * Every variable keeps the exact same name in .env and frontend/.env.local.
+ * Nothing gets renamed in between, so there's nothing to keep in sync by hand.
  *
  * Run via: pnpm run env:sync   (also runs automatically before `pnpm run dev`)
  */
@@ -81,19 +78,9 @@ for (const [key, value] of Object.entries(env)) {
 }
 frontendLines.push(`FIREBASE_SERVICE_ACCOUNT_KEY_BASE64=${get('FIREBASE_SERVICE_ACCOUNT_KEY_BASE64')}`)
 
-// ── backend/.env ─────────────────────────────────────────────────────
-const backendLines = [
-  header('read by the Firebase Functions CLI'),
-  `NEXT_PUBLIC_FIREBASE_PROJECT_ID=${get('NEXT_PUBLIC_FIREBASE_PROJECT_ID')}`,
-  `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64=${get('FIREBASE_SERVICE_ACCOUNT_KEY_BASE64')}`,
-  `CORS_ORIGIN=${get('CORS_ORIGIN')}`,
-  `PORT=${get('PORT')}`,
-]
-
 fs.writeFileSync(path.join(root, 'frontend', '.env.local'), frontendLines.join('\n') + '\n')
-fs.writeFileSync(path.join(root, 'backend', '.env'), backendLines.join('\n') + '\n')
 
-console.log('env:sync  .env → frontend/.env.local, backend/.env')
+console.log('env:sync  .env → frontend/.env.local')
 
 // Friendly warnings for the values that break the app when missing
 const required = [

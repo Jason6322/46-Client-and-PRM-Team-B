@@ -14,10 +14,10 @@ hotfix/*     ← urgent fixes (branched from main, PR back to main)
 
 ## Branch Naming
 
-| Type | Pattern | Example |
-|------|---------|---------|
-| Feature | `feature/{kebab-case}` | `feature/notes` |
-| Hotfix | `hotfix/{kebab-case}` | `hotfix/auth-token-expiry` |
+| Type    | Pattern                | Example                    |
+| ------- | ---------------------- | -------------------------- |
+| Feature | `feature/{kebab-case}` | `feature/notes`            |
+| Hotfix  | `hotfix/{kebab-case}`  | `hotfix/auth-token-expiry` |
 
 ## Workflow
 
@@ -45,7 +45,7 @@ Examples:
 feat: add notes feature
 fix(auth): handle token expiry on refresh
 docs: update Firestore schema for notes
-refactor(backend): extract auth middleware
+refactor(api): extract bearer-token check
 test: add integration tests for health route
 chore: upgrade firebase-admin to v13
 ```
@@ -62,6 +62,7 @@ change.
 `main` is protected — no direct pushes. All changes go through a pull request.
 
 CI must pass before merge:
+
 - Lint + typecheck
 - Unit tests
 - Dependency vulnerability audit (`pnpm audit`)

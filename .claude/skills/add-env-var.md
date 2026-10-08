@@ -1,17 +1,18 @@
 ---
-description: Add an environment variable to the single root .env template, wire it through scripts/sync-env.js to the right package, and document it in docs/ENV-VARS.md. Use when a new configuration value is needed.
-argument-hint: "[VAR_NAME] [frontend|backend|both]"
+description: Add an environment variable to the single root .env template, wire it through scripts/sync-env.js to the frontend, and document it in docs/ENV-VARS.md. Use when a new configuration value is needed.
+argument-hint: "[VAR_NAME]"
 ---
 
 # Skill: /add-env-var
 
-Add a new environment variable. This project uses a **single root `.env`** as the source of truth — `scripts/sync-env.js` generates `frontend/.env.local` and `backend/.env` from it. A new variable therefore touches three files: `.env.example`, `scripts/sync-env.js`, and `docs/ENV-VARS.md`.
+Add a new environment variable. This project uses a **single root `.env`** as the source of truth — `scripts/sync-env.js` generates `frontend/.env.local` from it. A new variable therefore touches three files: `.env.example`, `scripts/sync-env.js`, and `docs/ENV-VARS.md`.
 
 ## Step 1 — Gather requirements
 
 Ask the user:
+
 1. **Variable name** (e.g., `STRIPE_SECRET_KEY`)
-2. **Which package(s) need it** — `frontend`, `backend`, or both?
+2. **Who reads it** — the browser, the server (Server Actions / Route Handlers), or only root tooling (e.g. MCP keys)?
 3. **Is it secret?** — if yes, it must NOT have a `NEXT_PUBLIC_` prefix (a hook blocks this)
 4. **Does the browser need it?** — only then use the `NEXT_PUBLIC_` prefix
 5. **Description** — what is this variable for?
@@ -26,24 +27,20 @@ Ask the user:
 {VAR_NAME}=
 ```
 
-### 2. `scripts/sync-env.js` — route it to the package(s) that need it
+### 2. `scripts/sync-env.js` — route it to the frontend if it needs it
 
 - **Frontend, browser-safe**: nothing to do — all `NEXT_PUBLIC_*` keys pass through to `frontend/.env.local` automatically
 - **Frontend, server-only** (Server Actions / Route Handlers): add a line to the `frontendLines` block:
   ```javascript
-  frontendLines.push(`{VAR_NAME}=${get('{VAR_NAME}')}`)
-  ```
-- **Backend**: add a line to the `backendLines` array:
-  ```javascript
-  `{VAR_NAME}=${get('{VAR_NAME}')}`,
+  frontendLines.push(`{VAR_NAME}=${get("{VAR_NAME}")}`);
   ```
 - **Root-only** (e.g. MCP keys read from `.env` directly): nothing to do
 
 ### 3. `docs/ENV-VARS.md` — add a row to the variables table
 
-| Variable | Secret | Required | Description |
-|---------|--------|----------|-------------|
-| `{VAR_NAME}` | Yes/No | Yes/No | {Description} |
+| Variable     | Secret | Required | Description   |
+| ------------ | ------ | -------- | ------------- |
+| `{VAR_NAME}` | Yes/No | Yes/No   | {Description} |
 
 ### 4. If it's a secret
 

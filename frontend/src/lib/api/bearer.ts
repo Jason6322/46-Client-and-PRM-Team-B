@@ -13,9 +13,6 @@ export interface BearerUser {
  * Verifies the `Authorization: Bearer <Firebase ID token>` header on an API
  * request. Returns null when the header is missing, malformed, or the token
  * fails verification — callers render that as a 401 via `unauthorized()`.
- *
- * This is the Route Handler counterpart to the backend's auth middleware
- * (`backend/src/middleware/auth.ts`); keep the two in step.
  */
 export async function verifyBearer(req: NextRequest): Promise<BearerUser | null> {
   const header = req.headers.get('authorization')

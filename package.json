@@ -9,10 +9,8 @@
   "scripts": {
     "dev": "node scripts/sync-env.js && pnpm --filter frontend dev",
     "env:sync": "node scripts/sync-env.js",
-    "build": "pnpm --filter frontend build && pnpm --filter backend build",
-    "test": "pnpm --filter backend test",
-    "test:component": "pnpm --filter frontend test",
-    "test:all": "pnpm run test && pnpm run test:component",
+    "build": "pnpm --filter frontend build",
+    "test": "pnpm --filter frontend test",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "typecheck": "pnpm -r typecheck",

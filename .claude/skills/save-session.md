@@ -23,6 +23,7 @@ Save the current working session to `.claude/sessions/` so it can be resumed lat
 
 ```markdown
 # Session: <name>
+
 **Date:** <YYYY-MM-DD>
 **Branch:** <current git branch>
 
@@ -56,10 +57,10 @@ Save the current working session to `.claude/sessions/` so it can be resumed lat
 
 <List the key files touched this session and their current state. Note any files left in an incomplete or broken state.>
 
-| File | State |
-|------|-------|
-| `frontend/src/...` | complete |
-| `backend/src/...` | in progress — missing validation |
+| File                        | State                            |
+| --------------------------- | -------------------------------- |
+| `frontend/src/...`          | complete                         |
+| `frontend/src/features/...` | in progress — missing validation |
 
 ---
 

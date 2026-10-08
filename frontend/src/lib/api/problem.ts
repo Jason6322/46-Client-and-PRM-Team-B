@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
 
 /**
- * RFC 9457 Problem Details response body.
- * Mirrors the shape produced by the backend's errorHandler middleware
- * (`backend/src/middleware/errorHandler.ts`) so clients see one error
- * contract regardless of which runtime serves the route.
+ * RFC 9457 Problem Details response body — the one error contract every
+ * API Route Handler returns.
  */
 export interface ProblemDetails {
   type: string

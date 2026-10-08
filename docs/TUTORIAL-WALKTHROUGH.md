@@ -36,7 +36,7 @@ into `.env` — see [GUIDE.md §2](GUIDE.md) for the exact steps.
 Then sync and set the same project id in `.firebaserc`:
 
 ```bash
-pnpm run env:sync        # generates frontend/.env.local + backend/.env
+pnpm run env:sync        # generates frontend/.env.local
 ```
 
 ### 1.4 Run and verify the baseline
@@ -47,31 +47,30 @@ pnpm run dev
 
 Verified results:
 
-| Check | Result |
-|-------|--------|
-| `GET /` | ✅ 200 |
-| `GET /auth/signin`, `/auth/signup` | ✅ 200 |
-| `GET /dashboard` (no session) | ✅ 307 → `/auth/signin` |
+| Check                                                            | Result                          |
+| ---------------------------------------------------------------- | ------------------------------- |
+| `GET /`                                                          | ✅ 200                          |
+| `GET /auth/signin`, `/auth/signup`                               | ✅ 200                          |
+| `GET /dashboard` (no session)                                    | ✅ 307 → `/auth/signin`         |
 | Sign-up (real Firebase Auth) → session cookie → `GET /dashboard` | ✅ 200, session cookie accepted |
 
 ---
 
 ## Part 2 — The code changes, file by file
 
-The core feature touches nine files (Changes 1–9); there's also an optional three-file backend
-API bundle (Change 10).
+The feature touches nine files (Changes 1–9).
 
 ### Change 1 — `frontend/src/types/firestore.ts` (append)
 
 ```typescript
 export interface Note {
-  id: string
-  uid: string // owner's user id — used by security rules
-  title: string
-  body: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
-  _schemaVersion: 1
+  id: string;
+  uid: string; // owner's user id — used by security rules
+  title: string;
+  body: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  _schemaVersion: 1;
 }
 ```
 
@@ -79,15 +78,15 @@ export interface Note {
 
 ```typescript
 // change the existing type import:
-import type { Note, UserProfile } from '@/types/firestore'
+import type { Note, UserProfile } from "@/types/firestore";
 
 // append:
 export function getNotesCollection() {
-  return typedCollection<Note>('notes')
+  return typedCollection<Note>("notes");
 }
 
 export function noteDoc(id: string) {
-  return doc(getNotesCollection(), id)
+  return doc(getNotesCollection(), id);
 }
 ```
 
@@ -116,39 +115,44 @@ Deploy the updated rules before testing them: `npx firebase-tools deploy --only 
 ### Change 4 — `frontend/src/features/notes/actions/notes.actions.ts` (new file)
 
 ```typescript
-'use server'
+"use server";
 
-import { z } from 'zod'
-import { adminDb } from '@/lib/firebase/admin'
-import { requireAuth } from '@/actions/auth.actions'
-import { Timestamp } from 'firebase-admin/firestore'
-import type { ActionResult } from '@/types'
+import { z } from "zod";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireAuth } from "@/actions/auth.actions";
+import { Timestamp } from "firebase-admin/firestore";
+import type { ActionResult } from "@/types";
 
 const createNoteSchema = z.object({
   title: z.string().min(1).max(200),
   body: z.string().max(10_000),
-})
+});
 
-export async function createNote(input: unknown): Promise<ActionResult<string>> {
-  const session = await requireAuth()
+export async function createNote(
+  input: unknown,
+): Promise<ActionResult<string>> {
+  const session = await requireAuth();
 
-  const parsed = createNoteSchema.safeParse(input)
+  const parsed = createNoteSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
+    return {
+      success: false,
+      error: parsed.error.errors[0]?.message ?? "Invalid input",
+    };
   }
 
   try {
-    const now = Timestamp.now()
-    const ref = await adminDb.collection('notes').add({
+    const now = Timestamp.now();
+    const ref = await adminDb.collection("notes").add({
       ...parsed.data,
       uid: session.uid,
       createdAt: now,
       updatedAt: now,
       _schemaVersion: 1,
-    })
-    return { success: true, data: ref.id }
+    });
+    return { success: true, data: ref.id };
   } catch {
-    return { success: false, error: 'Failed to create note' }
+    return { success: false, error: "Failed to create note" };
   }
 }
 ```
@@ -383,154 +387,14 @@ export default async function NotesPage() {
 **Path:** `/notes/{noteId}`
 **Access:** Owner-only
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `uid` | `string` | Yes | Owner's Firebase Auth UID |
-| `title` | `string` | Yes | Note title (1–200 chars) |
-| `body` | `string` | Yes | Note body (≤10 000 chars) |
-| `createdAt` | `Timestamp` | Yes | Creation time |
-| `updatedAt` | `Timestamp` | Yes | Last update time |
-| `_schemaVersion` | `1` | Yes | Schema version for lazy migration |
-```
-
-### Change 10 (optional) — backend API endpoint
-
-**`backend/src/routes/notes.ts`** (new file):
-
-```typescript
-import { Router, type Router as ExpressRouter } from 'express'
-import type { Request, Response, NextFunction } from 'express'
-import { z } from 'zod'
-import type { AuthenticatedRequest } from '../middleware/auth'
-import { HttpError } from '../lib/errors'
-import { adminDb } from '../lib/firebase'
-
-const router: ExpressRouter = Router()
-
-const createNoteSchema = z
-  .object({
-    title: z.string().min(1).max(200),
-    body: z.string().max(10_000),
-  })
-  .strict()
-
-/**
- * GET /api/notes
- * List the authenticated user's notes.
- */
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest
-    const snap = await adminDb.collection('notes').where('uid', '==', user.uid).get()
-    res.json({ notes: snap.docs.map((d) => ({ id: d.id, ...d.data() })) })
-  } catch (err) {
-    next(err)
-  }
-})
-
-/**
- * POST /api/notes
- * Create a note owned by the authenticated user.
- */
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { user } = req as AuthenticatedRequest
-
-    const parsed = createNoteSchema.safeParse(req.body)
-    if (!parsed.success) {
-      return next(HttpError.badRequest(parsed.error.errors[0]?.message ?? 'Invalid input'))
-    }
-
-    const ref = adminDb.collection('notes').doc()
-    await ref.set({ ...parsed.data, uid: user.uid, _schemaVersion: 1 })
-
-    res.status(201).json({ id: ref.id })
-  } catch (err) {
-    next(err)
-  }
-})
-
-export { router as notesRouter }
-```
-
-**`backend/src/routes/index.ts`** (mount it):
-
-```diff
- import { Router, type Router as ExpressRouter } from 'express'
-+import { notesRouter } from './notes'
-
- const router: ExpressRouter = Router()
-+
-+router.use('/notes', notesRouter)
-```
-
-**`backend/tests/unit/routes/notes.test.ts`** (new file):
-
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import request from 'supertest'
-import { createApp } from '../../../src/app'
-import { mockVerifyToken, mockUser } from '../../setup'
-import { adminDb } from '../../../src/lib/firebase'
-
-const app = createApp({ verifyToken: mockVerifyToken })
-
-describe('Notes routes', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  describe('GET /api/notes', () => {
-    it('returns 401 without a token', async () => {
-      vi.mocked(mockVerifyToken).mockRejectedValue(new Error('invalid'))
-      const res = await request(app).get('/api/notes')
-      expect(res.status).toBe(401)
-    })
-
-    it('returns 200 with the user notes for authenticated request', async () => {
-      vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-      const get = vi.fn().mockResolvedValue({
-        docs: [{ id: 'n1', data: () => ({ uid: mockUser.uid, title: 'A', body: 'B' }) }],
-      })
-      const where = vi.fn().mockReturnValue({ get })
-      vi.mocked(adminDb.collection).mockReturnValue({ where } as never)
-
-      const res = await request(app).get('/api/notes').set('Authorization', 'Bearer fake-token')
-      expect(res.status).toBe(200)
-      expect(res.body.notes).toHaveLength(1)
-      expect(where).toHaveBeenCalledWith('uid', '==', mockUser.uid)
-    })
-  })
-
-  describe('POST /api/notes', () => {
-    it('returns 400 for invalid input', async () => {
-      vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-      const res = await request(app)
-        .post('/api/notes')
-        .set('Authorization', 'Bearer fake-token')
-        .send({ title: '' })
-      expect(res.status).toBe(400)
-      expect(res.body.title).toBe('Bad Request')
-    })
-
-    it('returns 201 and the new id for valid input', async () => {
-      vi.mocked(mockVerifyToken).mockResolvedValue(mockUser)
-      const set = vi.fn().mockResolvedValue(undefined)
-      const doc = vi.fn().mockReturnValue({ id: 'new-note-id', set })
-      vi.mocked(adminDb.collection).mockReturnValue({ doc } as never)
-
-      const res = await request(app)
-        .post('/api/notes')
-        .set('Authorization', 'Bearer fake-token')
-        .send({ title: 'First', body: 'Hello' })
-      expect(res.status).toBe(201)
-      expect(res.body.id).toBe('new-note-id')
-      expect(set).toHaveBeenCalledWith(
-        expect.objectContaining({ uid: mockUser.uid, _schemaVersion: 1 }),
-      )
-    })
-  })
-})
+| Field            | Type        | Required | Description                       |
+| ---------------- | ----------- | -------- | --------------------------------- |
+| `uid`            | `string`    | Yes      | Owner's Firebase Auth UID         |
+| `title`          | `string`    | Yes      | Note title (1–200 chars)          |
+| `body`           | `string`    | Yes      | Note body (≤10 000 chars)         |
+| `createdAt`      | `Timestamp` | Yes      | Creation time                     |
+| `updatedAt`      | `Timestamp` | Yes      | Last update time                  |
+| `_schemaVersion` | `1`         | Yes      | Schema version for lazy migration |
 ```
 
 ---
@@ -539,21 +403,20 @@ describe('Notes routes', () => {
 
 ### Quality gates
 
-| Gate | Command | Result |
-|------|---------|--------|
-| No unreplaced placeholders | `pnpm run validate` | ✅ |
-| Types | `pnpm run typecheck` (both packages) | ✅ |
-| Lint | `pnpm run lint` (both packages) | ✅ |
-| Backend unit tests | `pnpm run test` | ✅ 9/9 — includes the conventions test and the 4 new notes-route tests |
-| Frontend unit tests | `pnpm run test:component` | ✅ 9/9 — includes 3 new `CreateNoteForm` tests: validation blocks submit, successful submit calls the action and resets the form, failure shows an error toast (driven with `@testing-library/user-event`, not just rendered) |
-| Production build | `pnpm run build` | ✅ `/notes` appears in the route tree as a dynamic (server-rendered) route |
+| Gate                       | Command              | Result                                                                                                                                                                                                                        |
+| -------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No unreplaced placeholders | `pnpm run validate`  | ✅                                                                                                                                                                                                                            |
+| Types                      | `pnpm run typecheck` | ✅                                                                                                                                                                                                                            |
+| Lint                       | `pnpm run lint`      | ✅                                                                                                                                                                                                                            |
+| Unit tests                 | `pnpm run test`      | ✅ 9/9 — includes 3 new `CreateNoteForm` tests: validation blocks submit, successful submit calls the action and resets the form, failure shows an error toast (driven with `@testing-library/user-event`, not just rendered) |
+| Production build           | `pnpm run build`     | ✅ `/notes` appears in the route tree as a dynamic (server-rendered) route                                                                                                                                                    |
 
 ### Routes
 
-| Check | Result |
-|-------|--------|
-| `GET /notes` without session | ✅ 307 → `/auth/signin` |
-| `GET /notes` with session | ✅ 200, no server errors |
+| Check                        | Result                   |
+| ---------------------------- | ------------------------ |
+| `GET /notes` without session | ✅ 307 → `/auth/signin`  |
+| `GET /notes` with session    | ✅ 200, no server errors |
 
 ### Security rules — verified with real HTTP calls against a live Firebase project
 
@@ -561,36 +424,23 @@ After `npx firebase-tools deploy --only firestore:rules`, two throwaway test use
 Identity Toolkit REST API and used to hit the Firestore REST API directly — the same rules the
 client SDK is subject to:
 
-| Operation | Expected | Result |
-|-----------|----------|--------|
-| Owner creates their own note | allow → 200 | ✅ 200 |
-| Another user creates a note pretending to be owner (forged `uid`) | deny → 403 | ✅ 403 |
-| Owner reads their note | allow → 200 | ✅ 200 |
-| Another user reads the owner's note | deny → 403 | ✅ 403 |
-| Unauthenticated read | deny → 403 | ✅ 403 |
-| Owner hard-deletes (soft-delete only) | deny → 403 | ✅ 403 |
+| Operation                                                         | Expected    | Result |
+| ----------------------------------------------------------------- | ----------- | ------ |
+| Owner creates their own note                                      | allow → 200 | ✅ 200 |
+| Another user creates a note pretending to be owner (forged `uid`) | deny → 403  | ✅ 403 |
+| Owner reads their note                                            | allow → 200 | ✅ 200 |
+| Another user reads the owner's note                               | deny → 403  | ✅ 403 |
+| Unauthenticated read                                              | deny → 403  | ✅ 403 |
+| Owner hard-deletes (soft-delete only)                             | deny → 403  | ✅ 403 |
 
 Both test notes and both test users were deleted afterward via the Admin SDK.
 
-### Optional backend API — verified against real Firestore
-
-The Express route was run locally (see the appendix for how, since there's no `pnpm run
-emulator` or Functions runner in this boilerplate) and exercised with a real ID token:
-
-| Request | Expected | Result |
-|---------|----------|--------|
-| `GET /api/notes` without a token | 401 | ✅ 401 |
-| `GET /api/notes` with a token, no notes yet | 200, `{ notes: [] }` | ✅ 200 |
-| `POST /api/notes` with `{ title: "" }` | 400 | ✅ 400 |
-| `POST /api/notes` with valid input | 201, `{ id }` | ✅ 201 |
-| `GET /api/notes` again | 200, the created note | ✅ 200, 1 note returned |
-
 ### Git workflow
 
-| Check | Expected |
-|-------|----------|
-| `git commit -m "feat: add notes feature"` on `feature/notes` | accepted |
-| `git commit -m "this is not conventional"` | **rejected** by the commit-msg hook |
+| Check                                                        | Expected                            |
+| ------------------------------------------------------------ | ----------------------------------- |
+| `git commit -m "feat: add notes feature"` on `feature/notes` | accepted                            |
+| `git commit -m "this is not conventional"`                   | **rejected** by the commit-msg hook |
 
 ---
 
@@ -616,38 +466,3 @@ curl -s -o /dev/null -w '%{http_code}' \
 
 Use a throwaway test user in your dev Firebase project — delete it afterwards from the Firebase
 console (Authentication → Users).
-
-## Appendix — running the backend Express app locally (no emulator, no Functions runner)
-
-`pnpm --filter backend run dev` only type-checks and watches — it doesn't start an HTTP server
-(the Cloud Function entry in `src/index.ts` needs the Functions runtime to invoke it). To
-exercise `backend/` routes locally against real Firestore, build it and start `createApp()` on
-a plain port yourself:
-
-```bash
-pnpm --filter backend build   # compiles src/ -> lib/
-
-node -e "
-const fs = require('fs');
-const env = Object.fromEntries(
-  fs.readFileSync('backend/.env', 'utf8')
-    .split('\n').filter(l => l.includes('=') && !l.startsWith('#'))
-    .map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)] })
-);
-Object.assign(process.env, env);
-const { createApp } = require('./backend/lib/app');
-createApp().listen(5099, () => console.log('backend test server on :5099'));
-"
-```
-
-Then hit it with a real ID token (from the sign-up REST call above):
-
-```bash
-curl -s http://localhost:5099/api/notes -H "Authorization: Bearer $IDTOKEN"
-curl -s -X POST http://localhost:5099/api/notes \
-  -H "Authorization: Bearer $IDTOKEN" -H 'Content-Type: application/json' \
-  -d '{"title":"Test","body":"Hello"}'
-```
-
-Stop the process (`Ctrl+C` or `kill`) when done — this is a manual testing shim, not something
-the app runs in production (production uses the real Cloud Function entry point).

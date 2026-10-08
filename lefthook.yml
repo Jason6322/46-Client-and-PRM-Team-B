@@ -15,11 +15,6 @@ pre-commit:
       glob: 'frontend/src/**/*.{ts,tsx}'
       run: pnpm exec eslint --fix {staged_files} && git add {staged_files}
 
-    lint-backend:
-      root: 'backend/'
-      glob: 'backend/src/**/*.ts'
-      run: pnpm exec eslint --fix {staged_files} && git add {staged_files}
-
 commit-msg:
   commands:
     conventional-commit:

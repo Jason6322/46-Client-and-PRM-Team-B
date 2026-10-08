@@ -22,11 +22,11 @@ New to the repo? Read `docs/GUIDE.md` — it walks through building a feature en
 | Language           | TypeScript 5 — strict mode                                              |
 | Styling            | Tailwind CSS v4 (CSS-first config, no `tailwind.config.js`)             |
 | UI components      | Raw Tailwind (shadcn can be added per project)                          |
-| Backend            | Firebase Cloud Functions v2 (Express fat-lambda)                        |
+| Backend            | Next.js Server Actions + Route Handlers (Vercel Functions)              |
 | Database           | Firestore                                                               |
 | Auth               | Firebase Authentication                                                 |
 | Package manager    | pnpm workspaces — **always use pnpm, never npm or yarn**                |
-| Testing            | Vitest + Testing Library (frontend) · Vitest + supertest (backend)      |
+| Testing            | Vitest + Testing Library                                                |
 | Git hooks          | Lefthook (commit-msg: Conventional Commits · pre-commit: lint + format) |
 | CI/CD              | GitHub Actions                                                          |
 
@@ -37,17 +37,15 @@ New to the repo? Read `docs/GUIDE.md` — it walks through building a feature en
 ```
 /
 ├── frontend/          Next.js 16 App Router (deploys to Vercel)
-├── backend/           Cloud Functions v2 Express fat-lambda
 ├── firebase/          Firestore rules, indexes
 ├── docs/              Architecture and conventions docs (start with GUIDE.md)
 ├── scripts/           Utility scripts (bootstrap, validate-placeholders, migrations)
 └── .claude/           Claude Code harness (agents, skills, MCP, settings, hooks)
 ```
 
-**Nested instructions** are loaded automatically when editing files in a package:
+**Nested instructions** are loaded automatically when editing files in the frontend:
 
 - `frontend/CLAUDE.md` — Next.js 16, App Router, Server Components, auth flow, design reference
-- `backend/CLAUDE.md` — Express fat-lambda, route pattern, error handling, testing
 
 ---
 
@@ -80,7 +78,7 @@ Everything a feature build needs already exists below. **Do not survey the codeb
 
 ### Organisations feature (`frontend/src/features/organisations/`)
 
-The first complete feature — copy its shape for new ones. The backend is Next.js Server Actions; nothing here calls the Express app.
+The first complete feature — copy its shape for new ones. The backend is Next.js Server Actions.
 
 | File                               | Exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Use for                                                       |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -93,18 +91,6 @@ The first complete feature — copy its shape for new ones. The backend is Next.
 
 Archiving is a soft delete (`deletedAt`) and is separate from the `Archived` pipeline stage. Lists fetch the collection once and filter in memory — no composite indexes are needed. `organisations` security rules (and its `activities` subcollection) allow signed-in client-SDK reads of non-archived records and deny all client writes — every write goes through the Server Actions (Admin SDK). Client list queries must filter `where('deletedAt', '==', null)`.
 
-### Backend building blocks
-
-| File                              | Exports                                                                                                    | Use for                                                           |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `backend/src/app.ts`              | `createApp({ verifyToken? })`                                                                              | Composition; tests inject mock auth                               |
-| `backend/src/middleware/auth.ts`  | `AuthenticatedRequest` (`.user` = `AuthUser { uid, email, claims }`), `VerifyToken`, `verifyFirebaseToken` | Authed user in routes                                             |
-| `backend/src/lib/errors.ts`       | `HttpError` + statics `badRequest/unauthorized/forbidden/notFound/conflict/internal`                       | All route errors, via `next(...)`                                 |
-| `backend/src/lib/firebase.ts`     | `adminAuth`, `adminDb`                                                                                     | Sole Firebase Admin entry (CI-enforced)                           |
-| `backend/src/lib/zodConverter.ts` | `createZodConverter(schema, version, migrate?)`                                                            | Typed Firestore reads with `_schemaVersion`                       |
-| `backend/src/routes/index.ts`     | `apiRouter` — mount new routers here                                                                       | Route registry                                                    |
-| `backend/tests/setup.ts`          | `mockVerifyToken`, `mockUser`                                                                              | Route unit tests (mocked Firebase Admin — no real Firebase calls) |
-
 ### Firestore rules helpers (`firebase/firestore.rules`)
 
 `isAuthenticated()` · `isOwner(uid)` · `isAdmin()` (Firestore read) · `hasCustomClaim(claim)` (no read) · `notDeleted()`
@@ -115,7 +101,7 @@ Pages: `/` · `/auth/signin` · `/auth/signup` · `/dashboard` · `/profile` · 
 
 API (Next.js Route Handlers on Vercel — these are what the live URL serves): `GET /api/health` (public) · `GET /api/me` (returns `{ uid, email }`; requires `Authorization: Bearer <ID token>`) · `POST|DELETE /api/auth/session`.
 
-The Express app in `backend/` mirrors `/api/health` and `/api/me` and remains the target for a future Cloud Functions deploy, but **it is not deployed** — Cloud Functions v2 needs the Blaze plan and the Firebase project is on Spark. Add a route to both sides, or accept that the backend copy is dormant.
+There is no separate backend server. Use Server Actions for anything the app's own UI does; add a Route Handler under `frontend/src/app/api/` only when something outside the UI needs an HTTP URL (webhooks, cron, other clients).
 
 ---
 
@@ -145,13 +131,13 @@ Sub-agents run in their own isolated context with a tailored system prompt. Clau
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | `doc-auditor`       | Audits skills, docs, and CLAUDE.md for drift against the actual codebase. Use before a PR or after a major refactor.                      | Opus   |
 | `security-reviewer` | Audits staged changes for auth, input validation, Firestore rules, secret handling, and architecture violations. Use before opening a PR. | Opus   |
-| `test-writer`       | Writes Vitest unit tests for a given file matching project conventions (supertest for backend, Testing Library for frontend).             | Sonnet |
+| `test-writer`       | Writes Vitest unit tests for a given file matching project conventions (Testing Library).                                                 | Sonnet |
 
 **Usage examples:**
 
 - "Use the security-reviewer agent to audit my staged changes before I open this PR"
 - "Use the doc-auditor agent to check if the skills are still accurate"
-- "Use the test-writer agent to write tests for `backend/src/routes/health.ts`"
+- "Use the test-writer agent to write tests for `frontend/src/app/api/health/route.ts`"
 
 ---
 
@@ -174,7 +160,6 @@ Run these with `/skill-name` in Claude Code:
 | `/new-component`       | Create a React component (Server or Client) with typed props       |
 | `/firebase-collection` | Add a typed Firestore collection (type + rules + hook + docs)      |
 | `/add-auth-provider`   | Add an OAuth provider (Firebase config + sign-in button)           |
-| `/add-route`           | Add a Cloud Functions Express route with tests                     |
 | `/evolve-schema`       | Safely evolve a Firestore collection schema                        |
 | `/add-env-var`         | Add an env var consistently across packages and docs               |
 
@@ -225,7 +210,6 @@ Always use `pnpm`. Run commands as:
 
 - `pnpm install` (not `npm install`)
 - `pnpm --filter frontend add {package}`
-- `pnpm --filter backend add {package}`
 - `pnpm -r lint` (run across all packages)
 
 ### TypeScript
@@ -252,13 +236,12 @@ Always use `pnpm`. Run commands as:
 - Always call `requireAuth()` in Server Actions before any Firestore operation.
 - Use the soft-delete pattern (add `deletedAt: Timestamp`) instead of hard deletes.
 
-### Backend (Cloud Functions)
+### API Route Handlers
 
-- All routes under `/api/` (except `/api/health`) are protected by the auth middleware — it verifies the Firebase ID token.
-- Access the authenticated user via `(req as AuthenticatedRequest).user` — `{ uid, email, claims }`.
-- Error handling: pass `HttpError` (from `src/lib/errors.ts`) to `next()` — never inline `res.status(500)`.
-- Import Firebase Admin only from `src/lib/firebase.ts` — enforced by the conventions test.
-- Unit tests use supertest + mocked Firebase Admin (no real Firebase calls).
+- Every route under `frontend/src/app/api/` except `/api/health` and `/api/auth/session` calls `verifyBearer(req)` first and returns `unauthorized()` when it is null.
+- Return errors with `problem(status, title, detail)` from `@/lib/api/problem` (RFC 9457) — never leak stack traces.
+- Validate request bodies with Zod before use.
+- Unit tests mock Firebase Admin (no real Firebase calls).
 
 ### Git
 
@@ -292,7 +275,7 @@ Always use `pnpm`. Run commands as:
 
 ## Environment Variables
 
-**Single source of truth: the root `.env`** (template: `.env.example`). `pnpm run env:sync` (`scripts/sync-env.js`) generates `frontend/.env.local` and `backend/.env` from it — those files are generated output, never edit them directly. The sync runs automatically before `pnpm run dev`.
+**Single source of truth: the root `.env`** (template: `.env.example`). `pnpm run env:sync` (`scripts/sync-env.js`) generates `frontend/.env.local` from it — that file is generated output, never edit it directly. The sync runs automatically before `pnpm run dev`.
 
 When adding a variable, use the `/add-env-var` skill — it updates `.env.example`, `scripts/sync-env.js`, and `docs/ENV-VARS.md` together. See `docs/ENV-VARS.md` for the full variable reference.
 
@@ -304,9 +287,7 @@ When adding a variable, use the `/add-env-var` skill — it updates `.env.exampl
 pnpm install              # Install all workspace dependencies
 pnpm run validate         # Check for unreplaced template placeholders
 pnpm run dev              # Start the frontend dev server (talks to your real Firebase project)
-pnpm run test             # Backend unit tests (mocked Firebase Admin)
-pnpm run test:component   # Frontend unit tests
-pnpm run test:all         # All tests
+pnpm run test             # Frontend unit tests
 pnpm run lint             # ESLint across all packages
 pnpm run typecheck        # TypeScript check across all packages
 pnpm --filter frontend seed               # Dry run of the demo data (40 orgs, activity, opportunities)
@@ -323,7 +304,6 @@ When forking this boilerplate for a new client:
 1. **Update this file** — replace the overview section with client project details
 2. **Replace `.firebaserc`** — set the client's Firebase project ID
 3. **Update `.env.example`** — fill in `NEXT_PUBLIC_APP_NAME` default if the client has one
-4. **Update the region** in `backend/src/index.ts` if not Australia
-5. **Delete** `frontend/src/features/example-feature/` — it's a scaffold template only
-6. **Update `docs/ARCHITECTURE.md`** with the client's actual system design
-7. Run `pnpm run validate` — must return zero errors before first commit
+4. **Delete** `frontend/src/features/example-feature/` — it's a scaffold template only
+5. **Update `docs/ARCHITECTURE.md`** with the client's actual system design
+6. Run `pnpm run validate` — must return zero errors before first commit
