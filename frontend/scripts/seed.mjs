@@ -96,6 +96,7 @@ const PIPELINE_STAGES = [
 ]
 const ORGANISATION_TYPES = ['Industry Partner', 'Client', 'Collaborator']
 const RELATIONSHIP_STATUSES = ['Active', 'Prospect']
+const LEAD_PRIORITIES = ['Low', 'Medium', 'High', 'Urgent']
 const LOGGED_TYPES = ['Meeting', 'Call', 'Email', 'Note']
 const OPPORTUNITY_TYPES = ['Partnership', 'Project', 'Collaboration']
 
@@ -405,7 +406,7 @@ function buildOrganisation(name) {
       ? `${name} works across ${pick(INDUSTRIES).toLowerCase()}.`
       : null,
     qualificationInfo: stageIndex >= 2 ? 'Budget confirmed; aligned with FSC goals.' : null,
-    leadScore: researched ? between(20, 95) : null,
+    leadPriority: researched ? pick(LEAD_PRIORITIES) : null,
     researchStatus: researched ? pick(['In progress', 'Complete']) : null,
     businessBrief:
       researched && chance(0.6)

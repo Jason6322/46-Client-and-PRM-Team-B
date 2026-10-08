@@ -60,7 +60,7 @@ describe('relationship owner', () => {
     const parsed = relationshipManagementSchema.parse({
       businessResearchNotes: null,
       qualificationInfo: null,
-      leadScore: null,
+      leadPriority: null,
       researchStatus: null,
       businessBrief: null,
       outreachStatus: null,
@@ -71,5 +71,14 @@ describe('relationship owner', () => {
       nextAction: null,
     })
     expect(parsed.relationshipOwner).toBeNull()
+  })
+})
+
+describe('lead priority', () => {
+  it('accepts Urgent and rejects the old numeric score', () => {
+    const field = relationshipManagementSchema.shape.leadPriority
+    expect(field.safeParse('Urgent').success).toBe(true)
+    expect(field.safeParse(null).success).toBe(true)
+    expect(field.safeParse(82).success).toBe(false)
   })
 })

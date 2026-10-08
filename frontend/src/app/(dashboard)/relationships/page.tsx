@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
+import { LeadPriorityBadge } from '@/features/organisations/components/LeadPriorityBadge'
+import { byLeadPriority } from '@/features/organisations/constants'
 import { formatRelativeTime } from '@/lib/utils'
 
 export const metadata: Metadata = {
@@ -13,6 +15,9 @@ export const metadata: Metadata = {
 /**
  * Relationship management is per organisation, but the nav item carries no
  * organisation, so this picks one first and links through to its screen.
+ *
+ * Highest lead priority first — Urgent at the top — then most recently active,
+ * the order the list arrives in (the sort is stable).
  */
 export default async function RelationshipsPage() {
   const result = await listOrganisations()
@@ -48,25 +53,32 @@ export default async function RelationshipsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {result.data.map((organisation) => (
-            <Link
-              key={organisation.id}
-              href={`/relationships/${organisation.id}`}
-              className="hover:border-brand-400 rounded-lg border border-zinc-200 bg-white p-5 transition-colors"
-            >
-              <p className="text-sm font-semibold text-zinc-900">{organisation.name}</p>
-              <p className="text-brand-600 mt-1 text-sm">
-                {organisation.pipelineStage}
-                {organisation.relationshipStatus && (
-                  <span className="text-zinc-500"> · {organisation.relationshipStatus}</span>
-                )}
-              </p>
-              <p className="mt-3 text-xs text-zinc-500">
-                {organisation.relationshipOwner ?? 'Unassigned'} ·{' '}
-                {formatRelativeTime(organisation.lastActivityAt)}
-              </p>
-            </Link>
-          ))}
+          {[...result.data]
+            .sort((a, b) => byLeadPriority(a.leadPriority, b.leadPriority))
+            .map((organisation) => (
+              <Link
+                key={organisation.id}
+                href={`/relationships/${organisation.id}`}
+                className="hover:border-brand-400 rounded-lg border border-zinc-200 bg-white p-5 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-zinc-900">{organisation.name}</p>
+                  {organisation.leadPriority && (
+                    <LeadPriorityBadge priority={organisation.leadPriority} className="shrink-0" />
+                  )}
+                </div>
+                <p className="text-brand-600 mt-1 text-sm">
+                  {organisation.pipelineStage}
+                  {organisation.relationshipStatus && (
+                    <span className="text-zinc-500"> · {organisation.relationshipStatus}</span>
+                  )}
+                </p>
+                <p className="mt-3 text-xs text-zinc-500">
+                  {organisation.relationshipOwner ?? 'Unassigned'} ·{' '}
+                  {formatRelativeTime(organisation.lastActivityAt)}
+                </p>
+              </Link>
+            ))}
         </div>
       )}
     </div>

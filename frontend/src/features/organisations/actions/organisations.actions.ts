@@ -16,7 +16,9 @@ import {
 } from '@/lib/validations/organisation'
 import {
   DEFAULT_PIPELINE_STAGE,
+  LEAD_PRIORITIES,
   RELATIONSHIP_STATUSES,
+  leadScoreToPriority,
   nextPipelineStage,
   type PipelineStage,
 } from '@/features/organisations/constants'
@@ -55,7 +57,11 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Organisati
     relationshipOwner: text(data.relationshipOwner) || null,
     businessResearchNotes: text(data.businessResearchNotes),
     qualificationInfo: text(data.qualificationInfo),
-    leadScore: typeof data.leadScore === 'number' ? data.leadScore : null,
+    leadPriority: LEAD_PRIORITIES.includes(data.leadPriority)
+      ? data.leadPriority
+      : typeof data.leadScore === 'number'
+        ? leadScoreToPriority(data.leadScore)
+        : null,
     researchStatus: text(data.researchStatus),
     businessBrief: text(data.businessBrief),
     outreachStatus: text(data.outreachStatus),
@@ -538,6 +544,9 @@ export async function saveRelationshipManagement(
 
     await ref.update({
       ...parsed.data,
+      // The priority now stands in for the old score; drop it so the two can
+      // never disagree.
+      leadScore: FieldValue.delete(),
       ...(moved !== null && { pipelineStage: moved }),
       updatedAt: FieldValue.serverTimestamp(),
       lastActivityAt: FieldValue.serverTimestamp(),

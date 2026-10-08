@@ -1,5 +1,6 @@
 import type { Timestamp } from 'firebase/firestore'
 import type {
+  LeadPriority,
   OrganisationType,
   PipelineStage,
   RelationshipStatus,
@@ -76,8 +77,11 @@ export interface Organisation {
    */
   businessResearchNotes: string | null
   qualificationInfo: string | null
-  /** 0–100, entered by hand. Shown as a progress bar. */
-  leadScore: number | null
+  /**
+   * Set by hand. Replaced the 0–100 `leadScore`; documents still holding a
+   * score are read as the matching priority until next saved.
+   */
+  leadPriority: LeadPriority | null
   researchStatus: string | null
   businessBrief: string | null
   outreachStatus: string | null

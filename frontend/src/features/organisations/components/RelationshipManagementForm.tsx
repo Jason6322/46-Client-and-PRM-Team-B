@@ -8,7 +8,8 @@ import { AutoGrowTextarea } from '@/components/shared/AutoGrowTextarea'
 import { Card } from '@/components/shared/Card'
 import { labelClass, inputClass } from '@/components/shared/formClasses'
 import { saveRelationshipManagement } from '@/features/organisations/actions/organisations.actions'
-import { nextPipelineStage } from '@/features/organisations/constants'
+import { LeadPriorityBadge } from '@/features/organisations/components/LeadPriorityBadge'
+import { LEAD_PRIORITIES, nextPipelineStage } from '@/features/organisations/constants'
 import {
   relationshipManagementFormSchema,
   toRelationshipManagementInput,
@@ -44,7 +45,7 @@ export function RelationshipManagementForm({
     defaultValues: {
       businessResearchNotes: organisation.businessResearchNotes ?? '',
       qualificationInfo: organisation.qualificationInfo ?? '',
-      leadScore: organisation.leadScore === null ? '' : String(organisation.leadScore),
+      leadPriority: organisation.leadPriority ?? '',
       researchStatus: organisation.researchStatus ?? '',
       businessBrief: organisation.businessBrief ?? '',
       outreachStatus: organisation.outreachStatus ?? '',
@@ -56,8 +57,7 @@ export function RelationshipManagementForm({
     },
   })
 
-  const leadScore = watch('leadScore')
-  const score = leadScore === '' ? null : Number(leadScore)
+  const leadPriority = watch('leadPriority')
 
   const save = async (values: RelationshipManagementFormValues, advance: boolean) => {
     const result = await saveRelationshipManagement(
@@ -132,29 +132,31 @@ export function RelationshipManagementForm({
 
           <div>
             <div className="flex items-baseline justify-between gap-4">
-              <label htmlFor="leadScore" className={labelClass}>
-                Lead score
+              <label htmlFor="leadPriority" className={labelClass}>
+                Lead priority
               </label>
-              <span className="text-sm text-zinc-500">
-                {score === null ? 'Not scored' : `${score} / 100`}
-              </span>
+              {leadPriority === '' ? (
+                <span className="text-sm text-zinc-500">Not set</span>
+              ) : (
+                <LeadPriorityBadge priority={leadPriority} />
+              )}
             </div>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-              <div
-                className="bg-brand-600 h-full rounded-full transition-all"
-                style={{ width: `${score === null ? 0 : Math.min(score, 100)}%` }}
-              />
-            </div>
-            <input
-              id="leadScore"
-              inputMode="numeric"
-              placeholder="0-100"
-              aria-invalid={errors.leadScore ? true : undefined}
-              className={cn(inputClass, 'sm:w-32', errors.leadScore && 'border-red-400')}
-              {...register('leadScore')}
-            />
-            {errors.leadScore && (
-              <p className="mt-1 text-xs text-red-600">{errors.leadScore.message}</p>
+            <select
+              id="leadPriority"
+              aria-invalid={errors.leadPriority ? true : undefined}
+              className={cn(inputClass, 'sm:w-40', errors.leadPriority && 'border-red-400')}
+              {...register('leadPriority')}
+            >
+              <option value="">Not set</option>
+              {/* Highest first, the order people scan for. */}
+              {[...LEAD_PRIORITIES].reverse().map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority}
+                </option>
+              ))}
+            </select>
+            {errors.leadPriority && (
+              <p className="mt-1 text-xs text-red-600">{errors.leadPriority.message}</p>
             )}
           </div>
 

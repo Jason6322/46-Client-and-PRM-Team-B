@@ -11,6 +11,7 @@ import { NextActionEditor } from './NextActionEditor'
 import { PipelineStageSelect } from './PipelineStageSelect'
 import { MeetingsActivities } from './MeetingsActivities'
 import { PipelineTab } from './PipelineTab'
+import { LeadPriorityBadge } from './LeadPriorityBadge'
 import { RelationshipManagementForm } from './RelationshipManagementForm'
 import {
   describeActivity,
@@ -134,6 +135,16 @@ export function OrganisationDetail({
                   <dt className="inline">Relationship status: </dt>
                   <dd className={cn('inline', !organisation.relationshipStatus && 'text-zinc-400')}>
                     {organisation.relationshipStatus ?? 'Not set'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline">Lead priority: </dt>
+                  <dd className="inline">
+                    {organisation.leadPriority ? (
+                      <LeadPriorityBadge priority={organisation.leadPriority} />
+                    ) : (
+                      <span className="text-zinc-400">Not set</span>
+                    )}
                   </dd>
                 </div>
               </dl>

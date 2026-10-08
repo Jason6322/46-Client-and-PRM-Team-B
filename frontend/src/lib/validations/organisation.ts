@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   DEFAULT_PIPELINE_STAGE,
+  LEAD_PRIORITIES,
   LOGGED_ACTIVITY_TYPES,
   ORGANISATION_TYPES,
   PIPELINE_STAGES,
@@ -107,12 +108,7 @@ export const nextActionSchema = z
 export const relationshipManagementSchema = z.object({
   businessResearchNotes: optionalText,
   qualificationInfo: optionalText,
-  leadScore: z
-    .number()
-    .int('Lead score must be a whole number')
-    .min(0, 'Lead score must be between 0 and 100')
-    .max(100, 'Lead score must be between 0 and 100')
-    .nullable(),
+  leadPriority: z.enum(LEAD_PRIORITIES, { message: 'Select a lead priority' }).nullable(),
   researchStatus: optionalText,
   businessBrief: optionalText,
   outreachStatus: optionalText,
@@ -124,17 +120,11 @@ export const relationshipManagementSchema = z.object({
   nextAction: optionalText,
 })
 
-/** Form-shaped counterpart — inputs produce strings, including the lead score. */
+/** Form-shaped counterpart — inputs produce strings, including the lead priority. */
 export const relationshipManagementFormSchema = z.object({
   businessResearchNotes: z.string().trim().max(2000),
   qualificationInfo: z.string().trim().max(2000),
-  leadScore: z.union([
-    z.literal(''),
-    z
-      .string()
-      .regex(/^\d{1,3}$/, 'Enter a number from 0 to 100')
-      .refine((value) => Number(value) <= 100, 'Enter a number from 0 to 100'),
-  ]),
+  leadPriority: z.union([z.enum(LEAD_PRIORITIES), z.literal('')]),
   researchStatus: z.string().trim().max(100),
   businessBrief: z.string().trim().max(500),
   outreachStatus: z.string().trim().max(200),
@@ -152,7 +142,7 @@ export function toRelationshipManagementInput(values: RelationshipManagementForm
   return {
     businessResearchNotes: emptyToNull(values.businessResearchNotes),
     qualificationInfo: emptyToNull(values.qualificationInfo),
-    leadScore: values.leadScore === '' ? null : Number(values.leadScore),
+    leadPriority: values.leadPriority === '' ? null : values.leadPriority,
     researchStatus: emptyToNull(values.researchStatus),
     businessBrief: emptyToNull(values.businessBrief),
     outreachStatus: emptyToNull(values.outreachStatus),
