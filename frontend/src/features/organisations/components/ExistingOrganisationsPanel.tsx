@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { Card } from '@/components/shared/Card'
-import { ORGANISATION_TYPES } from '@/features/organisations/constants'
+import { ORGANISATION_TYPES, PIPELINE_STAGES } from '@/features/organisations/constants'
 import type { OrganisationListItem } from '@/features/organisations/types'
 
 /**
  * Existing organisations — the panel beside the Add Organisation form.
  *
  * There to catch duplicates before they are created: the totals, the split by
- * type and the most recently active records, at a glance.
+ * type and by pipeline stage, and the most recently active records, at a
+ * glance.
  */
 
 const RECENT_LIMIT = 5
@@ -45,6 +46,12 @@ export function ExistingOrganisationsPanel({
   }))
   const largestType = Math.max(1, ...byType.map((entry) => entry.count))
 
+  const byStage = PIPELINE_STAGES.map((stage) => ({
+    stage,
+    count: organisations.filter((organisation) => organisation.pipelineStage === stage).length,
+  }))
+  const largestStage = Math.max(1, ...byStage.map((entry) => entry.count))
+
   const stats = [
     { label: 'Total organisations', value: organisations.length },
     { label: 'Added this month', value: addedThisMonth },
@@ -79,6 +86,28 @@ export function ExistingOrganisationsPanel({
               />
             </span>
             <span className="w-8 shrink-0 text-right text-sm font-medium text-zinc-900">
+              {count}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-5 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        By pipeline stage
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {byStage.map(({ stage, count }) => (
+          <li key={stage} className="flex items-center gap-3">
+            <span className="w-28 shrink-0 truncate text-xs text-zinc-600" title={stage}>
+              {stage}
+            </span>
+            <span className="flex h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
+              <span
+                className="bg-brand-600 h-full rounded-full"
+                style={{ width: `${(count / largestStage) * 100}%` }}
+              />
+            </span>
+            <span className="w-8 shrink-0 text-right text-xs font-medium text-zinc-900">
               {count}
             </span>
           </li>
