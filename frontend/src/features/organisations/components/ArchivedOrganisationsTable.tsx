@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card } from '@/components/shared/Card'
@@ -21,10 +21,100 @@ import type { OrganisationListItem } from '@/features/organisations/types'
 const secondaryButton =
   'rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-zinc-50 disabled:opacity-60'
 
+/**
+ * Confirmation for the permanent delete. It opens centred on the page rather
+ * than in the row, so a double-click on "Delete permanently" can't land on the
+ * confirm button, and the delete stays disabled until the name is typed.
+ */
+function ConfirmDeleteDialog({
+  name,
+  pending,
+  onConfirm,
+  onCancel,
+}: {
+  name: string
+  pending: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const [typed, setTyped] = useState('')
+  const matches = typed.trim() === name.trim()
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !pending) onCancel()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [pending, onCancel])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 px-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-delete-title"
+        aria-describedby="confirm-delete-description"
+        className="w-full max-w-md rounded-lg bg-white p-6 text-left shadow-xl"
+      >
+        <h2 id="confirm-delete-title" className="text-base font-semibold text-zinc-900">
+          Delete {name} permanently?
+        </h2>
+        <p id="confirm-delete-description" className="mt-2 text-sm text-zinc-600">
+          This removes the organisation, its activity history and its opportunities. It can&apos;t
+          be undone.
+        </p>
+
+        <form
+          className="mt-4 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (matches && !pending) onConfirm()
+          }}
+        >
+          <div className="space-y-1.5">
+            <label htmlFor="confirm-delete-name" className="text-sm font-medium text-zinc-700">
+              Type <span className="font-semibold text-zinc-900">{name}</span> to confirm
+            </label>
+            <input
+              id="confirm-delete-name"
+              autoFocus
+              autoComplete="off"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              disabled={pending}
+              className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={pending}
+              className={cn(secondaryButton, 'text-zinc-600')}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!matches || pending}
+              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pending ? 'Deleting...' : 'Delete permanently'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function RowActions({ id, name }: { id: string; name: string }) {
   const router = useRouter()
   const [pending, setPending] = useState<'restore' | 'delete' | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const closeConfirm = useCallback(() => setConfirming(false), [])
 
   const restore = async () => {
     setPending('restore')
@@ -55,30 +145,6 @@ function RowActions({ id, name }: { id: string; name: string }) {
     router.refresh()
   }
 
-  if (confirming) {
-    return (
-      <span className="flex items-center justify-end gap-2">
-        <span className="text-xs text-zinc-500">Delete for good?</span>
-        <button
-          type="button"
-          onClick={remove}
-          disabled={pending !== null}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
-        >
-          {pending === 'delete' ? 'Deleting...' : 'Confirm delete'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirming(false)}
-          disabled={pending !== null}
-          className={cn(secondaryButton, 'text-zinc-600')}
-        >
-          Cancel
-        </button>
-      </span>
-    )
-  }
-
   return (
     <span className="flex items-center justify-end gap-2">
       <button
@@ -97,6 +163,14 @@ function RowActions({ id, name }: { id: string; name: string }) {
       >
         Delete permanently
       </button>
+      {confirming && (
+        <ConfirmDeleteDialog
+          name={name}
+          pending={pending === 'delete'}
+          onConfirm={remove}
+          onCancel={closeConfirm}
+        />
+      )}
     </span>
   )
 }
