@@ -158,8 +158,9 @@ export function toRelationshipManagementInput(values: RelationshipManagementForm
  * Logging a meeting, call, email or note.
  *
  * `occurredAt` is when the interaction happened, which is not the same as when
- * it was recorded — people log a meeting the next morning. It comes from a
- * datetime-local input, so it has no timezone and is read in the viewer's own.
+ * it was recorded — people log a meeting the next morning. It must carry its
+ * offset ("2026-10-19T23:00:00.000Z"): a bare datetime-local value parsed here
+ * would be read in the server's timezone (UTC on Vercel), not the viewer's.
  */
 export const logActivitySchema = z.object({
   type: z.enum(LOGGED_ACTIVITY_TYPES, { message: 'Select an activity type' }),
@@ -167,7 +168,7 @@ export const logActivitySchema = z.object({
     .string()
     .trim()
     .min(1, 'Enter when it happened')
-    .refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date and time'),
+    .datetime({ offset: true, message: 'Enter a valid date and time' }),
   responsible: z.string().trim().min(1, 'Assign a responsible team member').max(100),
   attendees: optionalText,
   agenda: optionalText,
@@ -182,7 +183,10 @@ export const logActivitySchema = z.object({
 /** Form-shaped counterpart — every input hands back a string. */
 export const logActivityFormSchema = z.object({
   type: z.enum(LOGGED_ACTIVITY_TYPES, { message: 'Select an activity type' }),
-  occurredAt: z.string().min(1, 'Enter when it happened'),
+  occurredAt: z
+    .string()
+    .min(1, 'Enter when it happened')
+    .refine((value) => !Number.isNaN(Date.parse(value)), 'Enter a valid date and time'),
   responsible: z.string().trim().min(1, 'Assign a responsible team member').max(100),
   attendees: z.string().trim().max(300),
   agenda: z.string().trim().max(1000),
@@ -211,10 +215,14 @@ function splitLines(value: string) {
 
 export type LogActivityFormValues = z.infer<typeof logActivityFormSchema>
 
+/**
+ * Runs in the browser, so the datetime-local value ("2026-10-20T10:00") is read
+ * in the viewer's timezone and sent as an exact instant.
+ */
 export function toLogActivityInput(values: LogActivityFormValues) {
   return {
     type: values.type,
-    occurredAt: values.occurredAt,
+    occurredAt: new Date(values.occurredAt).toISOString(),
     responsible: values.responsible.trim(),
     attendees: emptyToNull(values.attendees),
     agenda: emptyToNull(values.agenda),

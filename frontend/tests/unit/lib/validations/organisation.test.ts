@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createOrganisationSchema,
   logActivitySchema,
   organisationFormSchema,
   relationshipManagementSchema,
+  toLogActivityInput,
   updateOrganisationSchema,
+  type LogActivityFormValues,
 } from '@/lib/validations/organisation'
 
 // The form schema is refined, so its fields sit on the inner object.
@@ -87,7 +89,7 @@ describe('lead priority', () => {
 describe('logging an activity', () => {
   const activity = {
     type: 'Meeting',
-    occurredAt: '2026-08-29T10:00',
+    occurredAt: '2026-08-29T00:00:00.000Z',
     attendees: null,
     agenda: null,
     notes: null,
@@ -102,5 +104,47 @@ describe('logging an activity', () => {
     expect(logActivitySchema.parse({ ...activity, responsible: 'D. Zytsel' }).responsible).toBe(
       'D. Zytsel'
     )
+  })
+
+  // A bare datetime-local value would be read in the server's timezone, which
+  // is UTC on Vercel — a 10am meeting in Melbourne was stored as 9pm.
+  it('rejects a date and time with no timezone', () => {
+    const parsed = logActivitySchema.safeParse({
+      ...activity,
+      responsible: 'D. Zytsel',
+      occurredAt: '2026-10-20T10:00',
+    })
+    expect(parsed.success).toBe(false)
+  })
+})
+
+describe('sending a logged activity from the form', () => {
+  const values: LogActivityFormValues = {
+    type: 'Meeting',
+    occurredAt: '2026-10-20T10:00',
+    responsible: 'D. Zytsel',
+    attendees: '',
+    agenda: '',
+    notes: '',
+    outcome: '',
+    actionItems: '',
+    nextFollowUp: '',
+    meetingLink: '',
+    documentLinks: '',
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('reads the entered time in the viewer’s timezone', () => {
+    vi.stubEnv('TZ', 'Australia/Melbourne')
+    // 10am on 20 October in Melbourne (UTC+11) is 11pm on the 19th in UTC.
+    expect(toLogActivityInput(values).occurredAt).toBe('2026-10-19T23:00:00.000Z')
+  })
+
+  it('sends a value the server accepts', () => {
+    const input = toLogActivityInput(values)
+    expect(logActivitySchema.safeParse(input).success).toBe(true)
   })
 })
