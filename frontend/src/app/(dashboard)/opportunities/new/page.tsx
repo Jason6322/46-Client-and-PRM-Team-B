@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { listTeamMembers } from '@/actions/users.actions'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 }
 
 export default async function NewOpportunityPage() {
-  const result = await listOrganisations()
+  const [result, team] = await Promise.all([listOrganisations(), listTeamMembers()])
   const organisations = (result.data ?? []).map(({ id, name }) => ({ id, name }))
 
   return (
@@ -34,7 +35,7 @@ export default async function NewOpportunityPage() {
           />
         </Card>
       ) : (
-        <NewOpportunityForm organisations={organisations} />
+        <NewOpportunityForm organisations={organisations} teamMembers={team.data ?? []} />
       )}
     </div>
   )

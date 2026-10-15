@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { listTeamMembers } from '@/actions/users.actions'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { getOpportunity } from '@/features/opportunities/actions/opportunities.actions'
 import { OpportunityDetail } from '@/features/opportunities/components/OpportunityDetail'
@@ -26,9 +27,10 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   if (!result.success || !result.data) notFound()
 
   const opportunity = result.data
-  const [organisation, activities] = await Promise.all([
+  const [organisation, activities, team] = await Promise.all([
     getOrganisation(opportunity.organisationId),
     listOrganisationActivities(opportunity.organisationId),
+    listTeamMembers(),
   ])
 
   return (
@@ -47,7 +49,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <OpportunityDetail opportunity={opportunity} />
+        <OpportunityDetail opportunity={opportunity} teamMembers={team.data ?? []} />
         <RelatedToOpportunity
           organisation={organisation.data ?? null}
           activities={activities.data ?? []}

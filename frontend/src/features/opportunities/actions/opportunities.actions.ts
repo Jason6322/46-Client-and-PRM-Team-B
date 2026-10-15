@@ -4,9 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { requireAuth } from '@/actions/auth.actions'
 import { adminDb } from '@/lib/firebase/admin'
+import { readTeamMembers, toTeamMember } from '@/lib/teamMembers'
 import { createOpportunitySchema, updateOpportunitySchema } from '@/lib/validations/opportunity'
 import type { ActionResult } from '@/types'
-import type { Opportunity } from '@/types/firestore'
+import type { Opportunity, TeamMember } from '@/types/firestore'
 import type { OpportunityListItem } from '@/features/opportunities/types'
 
 /**
@@ -19,6 +20,19 @@ import type { OpportunityListItem } from '@/features/opportunities/types'
 const COLLECTION = 'opportunities'
 const ORGANISATIONS = 'organisations'
 
+/**
+ * uids from the form → the team members to store, with each name read from
+ * users/{uid}. Null if any uid has no profile, so a forged or stale uid is
+ * refused rather than stored.
+ */
+const UNKNOWN_MEMBER = 'A selected team member no longer has an account — remove them and try again'
+
+async function resolveTeamMembers(uids: string[]): Promise<TeamMember[] | null> {
+  const profiles = await adminDb.getAll(...uids.map((uid) => adminDb.collection('users').doc(uid)))
+  if (profiles.some((profile) => !profile.exists)) return null
+  return profiles.map((profile) => toTeamMember(profile.id, profile.data() ?? {}))
+}
+
 function serialise(id: string, data: FirebaseFirestore.DocumentData): OpportunityListItem {
   const toMillis = (value: unknown) => (value instanceof Timestamp ? value.toMillis() : Date.now())
   const text = (value: unknown) => (typeof value === 'string' ? value : null)
@@ -26,6 +40,7 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Opportunit
   return {
     ...(data as Omit<Opportunity, 'id'>),
     id,
+    assignedTo: readTeamMembers(data.assignedTo),
     nextStep: text(data.nextStep),
     proposalDocument: text(data.proposalDocument),
     description: text(data.description),
@@ -117,9 +132,13 @@ export async function createOpportunity(input: unknown): Promise<ActionResult<{ 
       return { success: false, error: 'Organisation not found' }
     }
 
+    const assignedTo = await resolveTeamMembers(parsed.data.assignedTo)
+    if (!assignedTo) return { success: false, error: UNKNOWN_MEMBER }
+
     const now = FieldValue.serverTimestamp()
     const ref = await adminDb.collection(COLLECTION).add({
       ...parsed.data,
+      assignedTo,
       organisationName: organisationData.name,
       completedAt: null,
       createdBy: session.uid,
@@ -147,10 +166,16 @@ export async function updateOpportunity(id: string, input: unknown): Promise<Act
   }
 
   try {
-    await adminDb
-      .collection(COLLECTION)
-      .doc(id)
-      .update({ ...parsed.data, updatedAt: FieldValue.serverTimestamp() })
+    const { assignedTo: uids, ...fields } = parsed.data
+    const update: Record<string, unknown> = { ...fields, updatedAt: FieldValue.serverTimestamp() }
+
+    if (uids) {
+      const assignedTo = await resolveTeamMembers(uids)
+      if (!assignedTo) return { success: false, error: UNKNOWN_MEMBER }
+      update.assignedTo = assignedTo
+    }
+
+    await adminDb.collection(COLLECTION).doc(id).update(update)
 
     revalidatePath('/opportunities')
     revalidatePath('/dashboard')

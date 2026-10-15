@@ -2,12 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { AutoGrowTextarea } from '@/components/shared/AutoGrowTextarea'
 import { Card } from '@/components/shared/Card'
 import { inputClass, labelClass } from '@/components/shared/formClasses'
+import { MultiSelect } from '@/components/shared/MultiSelect'
 import { createOpportunity } from '@/features/opportunities/actions/opportunities.actions'
 import { OPPORTUNITY_TYPES } from '@/features/opportunities/constants'
 import { DEFAULT_PIPELINE_STAGE, PIPELINE_STAGES } from '@/features/organisations/constants'
@@ -17,6 +18,7 @@ import {
   type OpportunityFormValues,
 } from '@/lib/validations/opportunity'
 import { cn } from '@/lib/utils'
+import type { TeamMember } from '@/types/firestore'
 
 /** The organisations an opportunity can be raised against. */
 export interface OrganisationChoice {
@@ -24,11 +26,19 @@ export interface OrganisationChoice {
   name: string
 }
 
-export function NewOpportunityForm({ organisations }: { organisations: OrganisationChoice[] }) {
+export function NewOpportunityForm({
+  organisations,
+  teamMembers,
+}: {
+  organisations: OrganisationChoice[]
+  teamMembers: TeamMember[]
+}) {
   const router = useRouter()
+  const teamMemberOptions = teamMembers.map(({ uid, name }) => ({ value: uid, label: name }))
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<OpportunityFormValues>({
@@ -38,7 +48,7 @@ export function NewOpportunityForm({ organisations }: { organisations: Organisat
       organisationId: organisations[0]?.id ?? '',
       type: 'Partnership',
       stage: DEFAULT_PIPELINE_STAGE,
-      owner: '',
+      assignedTo: [],
       nextStep: '',
       proposalDocument: '',
       description: '',
@@ -138,7 +148,29 @@ export function NewOpportunityForm({ organisations }: { organisations: Organisat
             </select>
           </div>
 
-          {field('owner', 'Assigned team member', { required: true })}
+          <div>
+            <label htmlFor="assignedTo" className={labelClass}>
+              Assigned team members <span aria-hidden="true">*</span>
+            </label>
+            <Controller
+              control={control}
+              name="assignedTo"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <MultiSelect
+                  id="assignedTo"
+                  options={teamMemberOptions}
+                  value={value}
+                  onChange={onChange}
+                  onBlur={onBlur}
+                  placeholder="Select team members"
+                  invalid={Boolean(errors.assignedTo)}
+                />
+              )}
+            />
+            {errors.assignedTo && (
+              <p className="mt-1 text-xs text-red-600">{errors.assignedTo.message}</p>
+            )}
+          </div>
           {field('nextStep', 'Expected next step')}
         </div>
 

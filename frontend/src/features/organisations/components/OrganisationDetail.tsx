@@ -231,7 +231,9 @@ export function OrganisationDetail({
                     {opportunity.name}
                   </Link>
                   <p className="mt-0.5 text-xs text-zinc-500">
-                    {opportunity.type} · {opportunity.stage} · {opportunity.owner}
+                    {opportunity.type} · {opportunity.stage}
+                    {opportunity.assignedTo.length > 0 &&
+                      ` · ${opportunity.assignedTo.map((member) => member.name).join(', ')}`}
                   </p>
                   {opportunity.nextStep && (
                     <p className="mt-1 text-sm text-zinc-600">Next: {opportunity.nextStep}</p>
