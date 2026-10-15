@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { OPPORTUNITY_TYPES } from '@/features/opportunities/constants'
 import { PIPELINE_STAGES, DEFAULT_PIPELINE_STAGE } from '@/features/organisations/constants'
+import type { TeamMember } from '@/types/firestore'
 
 /**
  * Opportunity validation.
@@ -15,6 +16,15 @@ const optionalText = z
   .transform((value) => (value.length > 0 ? value : null))
   .nullable()
 
+/**
+ * Team members by uid. The server looks up each name from users/{uid}, so a
+ * client cannot store a name that does not belong to a real user.
+ */
+const assignedTo = z
+  .array(z.string().trim().min(1))
+  .min(1, 'Assign at least one team member')
+  .max(10, 'Up to 10 team members')
+
 /** http/https only — a stored javascript: link becomes XSS once rendered. */
 const webUrl = z
   .string()
@@ -27,7 +37,7 @@ export const createOpportunitySchema = z.object({
   organisationId: z.string().trim().min(1, 'Choose an organisation'),
   type: z.enum(OPPORTUNITY_TYPES, { message: 'Select a type' }),
   stage: z.enum(PIPELINE_STAGES).default(DEFAULT_PIPELINE_STAGE),
-  owner: z.string().trim().min(1, 'Assigned team member is required').max(100),
+  assignedTo: assignedTo.transform((uids) => [...new Set(uids)]),
   nextStep: optionalText,
   proposalDocument: webUrl.nullable().or(z.literal('').transform(() => null)),
   description: optionalText,
@@ -45,7 +55,7 @@ export const opportunityFormSchema = z.object({
   organisationId: z.string().min(1, 'Choose an organisation'),
   type: z.enum(OPPORTUNITY_TYPES, { message: 'Select a type' }),
   stage: z.enum(PIPELINE_STAGES),
-  owner: z.string().trim().min(1, 'Assigned team member is required').max(100),
+  assignedTo,
   nextStep: z.string().trim().max(300),
   proposalDocument: z.union([webUrl, z.literal('')]),
   description: z.string().trim().max(2000),
@@ -62,7 +72,7 @@ export function toOpportunityInput(values: OpportunityFormValues) {
     organisationId: values.organisationId,
     type: values.type,
     stage: values.stage,
-    owner: values.owner.trim(),
+    assignedTo: values.assignedTo,
     nextStep: emptyToNull(values.nextStep),
     proposalDocument: emptyToNull(values.proposalDocument),
     description: emptyToNull(values.description),
@@ -76,7 +86,7 @@ export function toOpportunityFormValues(opportunity: {
   organisationId: string
   type: OpportunityFormValues['type']
   stage: OpportunityFormValues['stage']
-  owner: string
+  assignedTo: TeamMember[]
   nextStep: string | null
   proposalDocument: string | null
   description: string | null
@@ -87,7 +97,7 @@ export function toOpportunityFormValues(opportunity: {
     organisationId: opportunity.organisationId,
     type: opportunity.type,
     stage: opportunity.stage,
-    owner: opportunity.owner,
+    assignedTo: opportunity.assignedTo.map((member) => member.uid),
     nextStep: opportunity.nextStep ?? '',
     proposalDocument: opportunity.proposalDocument ?? '',
     description: opportunity.description ?? '',

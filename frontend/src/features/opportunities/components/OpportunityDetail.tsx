@@ -1,12 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { AutoGrowTextarea } from '@/components/shared/AutoGrowTextarea'
 import { Card } from '@/components/shared/Card'
 import { inputClass, labelClass } from '@/components/shared/formClasses'
+import { MultiSelect } from '@/components/shared/MultiSelect'
 import {
   setOpportunityComplete,
   updateOpportunity,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/validations/opportunity'
 import { cn, formatDate } from '@/lib/utils'
 import type { OpportunityListItem } from '@/features/opportunities/types'
+import type { TeamMember } from '@/types/firestore'
 
 /**
  * Opportunity detail — the editable panel beneath the table in the wireframe.
@@ -28,12 +30,25 @@ import type { OpportunityListItem } from '@/features/opportunities/types'
  * Update Status saves the whole panel; Mark Complete records completion
  * without requiring the form to be valid first.
  */
-export function OpportunityDetail({ opportunity }: { opportunity: OpportunityListItem }) {
+export function OpportunityDetail({
+  opportunity,
+  teamMembers,
+}: {
+  opportunity: OpportunityListItem
+  teamMembers: TeamMember[]
+}) {
   const router = useRouter()
   const complete = opportunity.completedAt !== null
+  // Anyone already assigned stays listed by name even if their profile has
+  // since gone, so the dropdown never shows a bare uid.
+  const teamMemberOptions = [
+    ...teamMembers,
+    ...opportunity.assignedTo.filter((member) => !teamMembers.some((t) => t.uid === member.uid)),
+  ].map(({ uid, name }) => ({ value: uid, label: name }))
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<OpportunityFormValues>({
@@ -133,7 +148,29 @@ export function OpportunityDetail({ opportunity }: { opportunity: OpportunityLis
             </select>
           </div>
 
-          {field('owner', 'Assigned team member')}
+          <div>
+            <label htmlFor="assignedTo" className={labelClass}>
+              Assigned team members
+            </label>
+            <Controller
+              control={control}
+              name="assignedTo"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <MultiSelect
+                  id="assignedTo"
+                  options={teamMemberOptions}
+                  value={value}
+                  onChange={onChange}
+                  onBlur={onBlur}
+                  placeholder="Select team members"
+                  invalid={Boolean(errors.assignedTo)}
+                />
+              )}
+            />
+            {errors.assignedTo && (
+              <p className="mt-1 text-xs text-red-600">{errors.assignedTo.message}</p>
+            )}
+          </div>
           {field('nextStep', 'Expected next step')}
         </div>
 

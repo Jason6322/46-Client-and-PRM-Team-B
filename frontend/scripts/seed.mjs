@@ -430,7 +430,7 @@ function buildOrganisation(name) {
   return { organisation, activities }
 }
 
-function buildOpportunity(organisationId, organisation) {
+function buildOpportunity(organisationId, organisation, team) {
   const stage = pick(PIPELINE_STAGES.slice(1, 11))
   const createdAt = organisation.createdAt.toMillis() + between(1, 10) * DAY
   const completed = stage === 'Completed'
@@ -440,7 +440,9 @@ function buildOpportunity(organisationId, organisation) {
     organisationName: organisation.name,
     type: pick(OPPORTUNITY_TYPES),
     stage,
-    owner: organisation.relationshipOwner ?? pick(OWNERS),
+    // One or two real users, so the Assigned team members dropdown shows them
+    // ticked and saving an edit does not trip over an unknown uid.
+    assignedTo: sample(team, chance(0.3) ? 2 : 1),
     nextStep: completed ? null : pick(NEXT_ACTIONS),
     proposalDocument: chance(0.4) ? `https://docs.example.org/proposals/${organisationId}` : null,
     description: `Joint work with ${organisation.name} on local food access.`,
@@ -528,6 +530,14 @@ async function seed() {
   const existing = await db.collection('organisations').where('_seed', '==', true).limit(1).get()
   if (!existing.empty) exit('Demo data is already seeded. Run with --clean first.')
 
+  // Opportunities are assigned to people who can actually sign in.
+  const users = await db.collection('users').get()
+  const team = users.docs.map((doc) => ({
+    uid: doc.id,
+    name: doc.get('displayName') || doc.get('email') || 'Unnamed user',
+  }))
+  if (team.length === 0) exit('No users/ profiles to assign opportunities to — sign in once first.')
+
   let batch = db.batch()
   let pending = 0
   const commitIfFull = async () => {
@@ -550,7 +560,7 @@ async function seed() {
   for (const record of withOpportunities) {
     batch.set(
       db.collection('opportunities').doc(),
-      buildOpportunity(record.id, record.organisation)
+      buildOpportunity(record.id, record.organisation, team)
     )
     await commitIfFull()
   }

@@ -31,6 +31,15 @@ export interface UserProfile {
 
 export type CreateUserProfileInput = Omit<UserProfile, 'createdAt' | 'updatedAt'>
 
+/**
+ * A user who can be assigned to work, as other records refer to them. The name
+ * is denormalised so a list renders without reading every user profile.
+ */
+export interface TeamMember {
+  uid: string
+  name: string
+}
+
 /** A named person at an organisation. Shape is shared by primary and secondary. */
 export interface OrganisationContact {
   name: string
@@ -115,7 +124,8 @@ export interface Opportunity {
   organisationName: string
   type: OpportunityType
   stage: PipelineStage
-  owner: string
+  /** At least one. Names are copied from users/{uid} when the opportunity is saved. */
+  assignedTo: TeamMember[]
   nextStep: string | null
   /** Link to the proposal or supporting document; http/https only. */
   proposalDocument: string | null
