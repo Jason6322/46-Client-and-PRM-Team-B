@@ -6,6 +6,7 @@
  *   pnpm --filter frontend seed -- --write    writes the demo data
  *   pnpm --filter frontend seed -- --clean    deletes everything this script wrote
  *   pnpm --filter frontend seed -- --write --count 60
+ *   pnpm --filter frontend seed -- --write --tz Europe/London
  *
  * Every document carries `_seed: true` and every organisation the tag "demo",
  * so the data is easy to spot in the app and --clean removes exactly what was
@@ -39,6 +40,17 @@ const COUNT = countArg >= 0 ? Number(args[countArg + 1]) : 40
 
 if (WRITE && CLEAN) exit('Pass --write or --clean, not both.')
 if (!Number.isInteger(COUNT) || COUNT < 1 || COUNT > 200) exit('--count must be 1–200.')
+
+// Meeting times and "today" are read in this zone: the device's own, unless
+// --tz names the client's. The app shows every time in the viewer's zone, so
+// seed in the zone of whoever will be looking at the demo.
+const tzArg = args.indexOf('--tz')
+const TIME_ZONE = tzArg >= 0 ? args[tzArg + 1] : Intl.DateTimeFormat().resolvedOptions().timeZone
+try {
+  new Intl.DateTimeFormat('en-AU', { timeZone: TIME_ZONE })
+} catch {
+  exit(`Unknown timezone: ${TIME_ZONE}`)
+}
 
 function exit(message) {
   console.error(message)
@@ -283,9 +295,42 @@ const OPPORTUNITY_NAMES = [
 const DAY = 86_400_000
 const now = Date.now()
 const ts = (millis) => Timestamp.fromMillis(millis)
+
+// "Today" and "10am" mean TIME_ZONE's, not UTC's — which is a day behind
+// Australia, or ahead of the Americas, for part of each day.
+const clock = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIME_ZONE,
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+const wallClock = (millis) =>
+  Object.fromEntries(clock.formatToParts(new Date(millis)).map((p) => [p.type, Number(p.value)]))
+/** "2026-10-20", the calendar date in TIME_ZONE at `millis`. */
+const localDay = (millis) => {
+  const { year, month, day } = wallClock(millis)
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+/** How far TIME_ZONE's clock is ahead of UTC at `millis`. */
+const offsetAt = (millis) => {
+  const { year, month, day, hour, minute } = wallClock(millis)
+  return Date.UTC(year, month - 1, day, hour, minute) - Math.floor(millis / 60_000) * 60_000
+}
+/** The instant TIME_ZONE's clock reads `hour:minute` on `day` ("2026-10-20"). */
+const atLocalTime = (day, hour, minute) => {
+  const wall = Date.parse(`${day}T00:00:00Z`) + (hour * 60 + minute) * 60_000
+  // Second pass picks the right offset when the guess lands across a DST change.
+  return wall - offsetAt(wall - offsetAt(wall))
+}
+/** A plausible meeting time on the day `millis` falls on: 9am–4:30pm, on the half hour. */
+const inWorkingHours = (millis) => atLocalTime(localDay(millis), between(9, 16), pick([0, 30]))
+
 /** Due dates are stored at 12:00 UTC on the day, as followUp.ts expects. */
 const dueDate = (dayOffset) => {
-  const day = new Date(now + dayOffset * DAY).toISOString().slice(0, 10)
+  const day = localDay(now + dayOffset * DAY)
   return Timestamp.fromDate(new Date(`${day}T12:00:00Z`))
 }
 const slug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '')
@@ -346,7 +391,11 @@ function buildOrganisation(name) {
   const logged = Array.from({ length: between(0, 4) }, () => {
     const type = pick(LOGGED_TYPES)
     const upcoming = type === 'Meeting' && chance(0.3)
-    const occurredAt = upcoming ? now + between(1, 6) * DAY : now - between(1, 40) * DAY
+    // Whole days from now would give every meeting the clock time the seed was
+    // run at, so each lands in working hours on its day instead.
+    const occurredAt = inWorkingHours(
+      upcoming ? now + between(1, 6) * DAY : now - between(1, 40) * DAY
+    )
     // Recorded after it happened (people log a meeting the next morning), but
     // always some minutes in the past, never clamped to exactly now.
     const recordedAt = upcoming
@@ -466,7 +515,7 @@ function futureMeeting(organisation, { date, agenda }) {
   const responsible = organisation.relationshipOwner ?? pick(OWNERS)
   return {
     type: 'Meeting',
-    occurredAt: Timestamp.fromDate(new Date(`${date}T00:00:00Z`)),
+    occurredAt: ts(atLocalTime(date, 10, 0)),
     responsible,
     attendees: organisation.primaryContact.name,
     agenda,
@@ -494,7 +543,7 @@ async function seed() {
     organisation.deletedAt = ts(now - between(1, 20) * DAY)
   })
   // Meetings booked well ahead, in 2027, to show how far-future entries look
-  // on the timeline. 00:00 UTC is 10–11am in Melbourne.
+  // on the timeline. Each is at 10am in TIME_ZONE.
   FUTURE_MEETINGS.forEach((meeting, i) => {
     const record = records[2 + i]
     if (!record) return
@@ -505,6 +554,7 @@ async function seed() {
   const withOpportunities = records.filter((_, i) => i >= 2 && chance(0.5))
 
   console.log(`Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}`)
+  console.log(`Time zone: ${TIME_ZONE}`)
   console.log(`Organisations: ${records.length} (2 archived)`)
   console.log(`Activities:    ${activityCount}`)
   console.log(`Opportunities: ${withOpportunities.length}`)
