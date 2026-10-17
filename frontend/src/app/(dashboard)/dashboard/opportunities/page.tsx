@@ -60,59 +60,51 @@ export default async function ActiveOpportunitiesPage() {
             {open.length} open {open.length === 1 ? 'opportunity' : 'opportunities'}
           </p>
           <ul>
-            {[...open]
-              .sort((a, b) => b.updatedAt - a.updatedAt)
-              .map((opportunity) => (
-                <li
-                  key={opportunity.id}
-                  className="border-b border-zinc-50 px-6 py-4 last:border-0"
-                >
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Link
-                      href={`/opportunities/${opportunity.id}`}
-                      className="hover:text-brand-600 text-sm font-semibold text-zinc-900 transition-colors"
-                    >
-                      {opportunity.name}
-                    </Link>
-                    <span className="bg-brand-50 text-brand-700 rounded px-2 py-0.5 text-xs font-semibold">
-                      {opportunity.stage}
-                    </span>
-                    <span className="text-xs text-zinc-500">{opportunity.type}</span>
-                    <span className="ml-auto text-xs text-zinc-500">
-                      Updated {formatRelativeTime(opportunity.updatedAt)}
-                    </span>
-                  </div>
+            {open.map((opportunity) => (
+              <li key={opportunity.id} className="border-b border-zinc-50 px-6 py-4 last:border-0">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <Link
+                    href={`/opportunities/${opportunity.id}`}
+                    className="hover:text-brand-600 text-sm font-semibold text-zinc-900 transition-colors"
+                  >
+                    {opportunity.name}
+                  </Link>
+                  <span className="bg-brand-50 text-brand-700 rounded px-2 py-0.5 text-xs font-semibold">
+                    {opportunity.stage}
+                  </span>
+                  <span className="text-xs text-zinc-500">{opportunity.type}</span>
+                  <span className="ml-auto text-xs text-zinc-500">
+                    Updated {formatRelativeTime(opportunity.updatedAt)}
+                  </span>
+                </div>
 
-                  <DetailFields
-                    fields={[
-                      [
-                        'Organisation',
-                        <Link
-                          key="organisation"
-                          href={`/organisations/${opportunity.organisationId}`}
-                          className="hover:text-brand-600 transition-colors"
-                        >
-                          {opportunity.organisationName}
-                        </Link>,
-                      ],
-                      [
-                        'Assigned to',
-                        opportunity.assignedTo.map((member) => member.name).join(', '),
-                      ],
-                      ['Next step', opportunity.nextStep],
-                      ['Description', opportunity.description],
-                      ['Expected outcome', opportunity.expectedOutcome],
-                      [
-                        'Proposal',
-                        opportunity.proposalDocument && (
-                          <ExternalLink href={opportunity.proposalDocument} />
-                        ),
-                      ],
-                      ['Created', formatDate(new Date(opportunity.createdAt))],
-                    ]}
-                  />
-                </li>
-              ))}
+                <DetailFields
+                  fields={[
+                    [
+                      'Organisation',
+                      <Link
+                        key="organisation"
+                        href={`/organisations/${opportunity.organisationId}`}
+                        className="hover:text-brand-600 transition-colors"
+                      >
+                        {opportunity.organisationName}
+                      </Link>,
+                    ],
+                    ['Assigned to', opportunity.assignedTo.map((member) => member.name).join(', ')],
+                    ['Next step', opportunity.nextStep],
+                    ['Description', opportunity.description],
+                    ['Expected outcome', opportunity.expectedOutcome],
+                    [
+                      'Proposal',
+                      opportunity.proposalDocument && (
+                        <ExternalLink href={opportunity.proposalDocument} />
+                      ),
+                    ],
+                    ['Created', formatDate(new Date(opportunity.createdAt))],
+                  ]}
+                />
+              </li>
+            ))}
           </ul>
         </Card>
       )}

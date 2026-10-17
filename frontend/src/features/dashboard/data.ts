@@ -3,11 +3,7 @@ import {
   listRecentActivity,
   listUpcomingMeetings,
 } from '@/features/organisations/actions/organisations.actions'
-import type {
-  MeetingWithOrganisation,
-  OrganisationActivity,
-  OrganisationListItem,
-} from '@/features/organisations/types'
+import type { MeetingWithOrganisation, OrganisationListItem } from '@/features/organisations/types'
 
 /**
  * Reads shared by the dashboard and its "See all" pages, so a card and its
@@ -15,11 +11,8 @@ import type {
  * call does its own requireAuth().
  */
 
-export type ActivityWithOrganisation = {
-  activity: OrganisationActivity
-  organisationId: string
-  organisationName: string
-}
+/** An activity with the organisation it belongs to — the same shape as a meeting. */
+export type ActivityWithOrganisation = MeetingWithOrganisation
 
 /**
  * The latest `limit` non-archived activities across all active organisations,

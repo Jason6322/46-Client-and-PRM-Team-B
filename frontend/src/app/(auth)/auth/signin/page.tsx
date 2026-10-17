@@ -33,13 +33,6 @@ export default function SignInPage() {
     }
   }, [loading, user, router])
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('verification') === 'sent') {
-      toast.success('Verification email sent. Verify your email, then sign in.')
-    }
-  }, [])
-
   if (loading) return <FullPageSpinner />
 
   const onSubmit = async (data: LoginInput) => {

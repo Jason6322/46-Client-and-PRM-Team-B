@@ -34,8 +34,6 @@ export interface UserProfile {
 /** 'admin' can add, deactivate and promote users from /admin. */
 export type UserRole = 'user' | 'admin'
 
-export type CreateUserProfileInput = Omit<UserProfile, 'createdAt' | 'updatedAt'>
-
 /**
  * A user who can be assigned to work, as other records refer to them. The name
  * is denormalised so a list renders without reading every user profile.
