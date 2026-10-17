@@ -65,27 +65,22 @@ curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/auth/signin    # 20
 curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/dashboard      # 307 (redirect to signin)
 ```
 
-Then the full auth round trip against the real project, using the Identity Toolkit REST API and the web API key from `.env` (`NEXT_PUBLIC_FIREBASE_API_KEY`):
+Then check the server can verify Firebase tokens. Access is invite-only, so a throwaway sign-up would just be refused — an invalid token is enough to exercise the Admin SDK:
 
 ```bash
-API_KEY=<value of NEXT_PUBLIC_FIREBASE_API_KEY from .env>
-
-# 1. create a throwaway test user directly against Firebase Auth
-IDTOKEN=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"smoke-test@example.com","password":"test1234","returnSecureToken":true}' | jq -r .idToken)
-
-# 2. exchange it for a session cookie via the app's own route
-curl -s -c /tmp/bootstrap-smoke.txt -X POST http://localhost:3000/api/auth/session \
-  -H 'Content-Type: application/json' -d "{\"token\":\"$IDTOKEN\"}"          # {"success":true}
-
-# 3. protected page with the cookie
-curl -s -o /dev/null -w '%{http_code}' -b /tmp/bootstrap-smoke.txt http://localhost:3000/dashboard   # 200
+curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/auth/session \
+  -H 'Content-Type: application/json' -d '{"token":"not-a-real-token"}'   # 401
 ```
 
-If step 1 fails, Email/Password sign-in is likely not enabled in the Firebase console (Authentication → Sign-in method). Delete the throwaway user afterwards from the Firebase console (Authentication → Users) — it's real data in a real project.
+401 means Firebase Auth looked at the token and rejected it, so the service account works. 503 means the server couldn't reach Firebase — check the dev server log; a `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` error means it's empty or malformed in `.env` (re-run `pnpm run env:sync` and restart dev).
 
-If step 2 returns 401, check the dev server log — a `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` error means it's empty or malformed in `.env` (re-run `pnpm run env:sync` and restart dev).
+Finally, the full round trip with the first admin. Ask the user for their email, then:
+
+```bash
+pnpm --filter frontend make-admin -- <their email>
+```
+
+It creates the account if needed. The user sets a password with **Forgot password?** on the sign-in page and signs in; they should land on `/dashboard` with an **Admin** link in the top nav (sign-in → session cookie → profile gate → protected page). If Email/Password sign-in fails outright, it is likely not enabled in the Firebase console (Authentication → Sign-in method). If sign-in says the account doesn't have access, the profile wasn't written — re-run `make-admin`.
 
 ## Step 6 — Report
 
@@ -96,16 +91,17 @@ Output a summary the user can act on:
 
 Firebase project: <NEXT_PUBLIC_FIREBASE_PROJECT_ID>
 App:              http://localhost:3000
-Test user:        smoke-test@example.com / test1234 (delete from Firebase console when done)
+Admin:            <their email> (password set with Forgot password?)
 
 | Check | Result |
 |-------|--------|
 | Dependencies + git hooks | ✅ |
 | .env → generated env files | ✅ |
 | App pages (/, /auth/signin, /dashboard gate) | ✅ |
-| Auth round trip (signup → session → dashboard) | ✅ |
+| Token verification (/api/auth/session → 401) | ✅ |
+| Admin sign-in → /dashboard | ✅ |
 
-Next: sign up in the browser, then read docs/GUIDE.md §4 to build your first feature.
+Next: invite teammates from /admin, then read docs/GUIDE.md §4 to build your first feature.
 ```
 
 If ANY check failed, the verdict is **NOT BOOTSTRAPPED** — show which step, the error, and the fix from the tables above. Never report success with a failing smoke test.
