@@ -41,12 +41,15 @@ const profileOnce = cache((uid: string) => adminDb.collection('users').doc(uid).
 
 /**
  * Require authentication in a Server Action or Server Component.
- * Redirects to /login if not authenticated.
+ * Redirects to the sign-in page if not authenticated. ?expired tells the proxy
+ * to delete a cookie that is present but no longer valid — it can't be deleted
+ * from here during a render, and keeping it would make the proxy send the
+ * sign-in page straight back to the dashboard.
  */
 export async function requireAuth() {
   const session = await getServerSession()
   if (!session) {
-    redirect('/auth/signin')
+    redirect('/auth/signin?expired=1')
   }
   return session
 }
