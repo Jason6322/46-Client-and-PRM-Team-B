@@ -7,13 +7,16 @@ vi.mock('next/headers', () => ({
 }))
 
 const profileGet = vi.fn()
+const profileUpdate = vi.fn()
 vi.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
     verifyIdToken: vi.fn(),
     createSessionCookie: vi.fn(),
   },
   adminDb: {
-    collection: vi.fn(() => ({ doc: vi.fn(() => ({ get: profileGet })) })),
+    collection: vi.fn(() => ({
+      doc: vi.fn(() => ({ get: profileGet, update: profileUpdate })),
+    })),
   },
 }))
 
@@ -57,6 +60,28 @@ describe('POST /api/auth/session — invite-only gate', () => {
       'session-cookie',
       expect.objectContaining({ httpOnly: true, sameSite: 'lax' })
     )
+  })
+
+  it('returns the profile so the browser need not read it again', async () => {
+    profileGet.mockResolvedValue(profile({ role: 'admin', displayName: 'Jason', deletedAt: null }))
+
+    const res = await POST(request({ token: 'id-token' }))
+
+    expect(await res.json()).toEqual({
+      success: true,
+      profile: { displayName: 'Jason', role: 'admin' },
+    })
+    expect(profileUpdate).not.toHaveBeenCalled()
+  })
+
+  it('backfills a missing display name from the Auth account', async () => {
+    verifyIdToken.mockResolvedValue({ uid: 'u1', email_verified: true, name: 'Saneli' } as never)
+    profileGet.mockResolvedValue(profile({ role: 'user', displayName: null, deletedAt: null }))
+
+    const res = await POST(request({ token: 'id-token' }))
+
+    expect(profileUpdate).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'Saneli' }))
+    expect((await res.json()).profile).toEqual({ displayName: 'Saneli', role: 'user' })
   })
 
   it('refuses an account no admin has added', async () => {

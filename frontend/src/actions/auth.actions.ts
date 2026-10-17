@@ -3,6 +3,7 @@
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
+import { cache } from 'react'
 import type { ActionResult } from '@/types'
 
 const SESSION_COOKIE_NAME = '__session'
@@ -17,13 +18,26 @@ export async function getServerSession() {
 
   if (!sessionCookie) return null
 
+  return verifySessionOnce(sessionCookie)
+}
+
+/**
+ * Every Server Action calls requireAuth(), and a page calls several, so
+ * verification is memoised for the request (React cache). checkRevoked makes
+ * each verification a round trip to Firebase Auth; the dashboard made about a
+ * dozen per render. Scoped to one request, so revocation still applies to the
+ * next one.
+ */
+const verifySessionOnce = cache(async (sessionCookie: string) => {
   try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true)
-    return decoded
+    return await adminAuth.verifySessionCookie(sessionCookie, true)
   } catch {
     return null
   }
-}
+})
+
+/** The caller's profile, read at most once per request (React cache). */
+const profileOnce = cache((uid: string) => adminDb.collection('users').doc(uid).get())
 
 /**
  * Require authentication in a Server Action or Server Component.
@@ -43,7 +57,7 @@ export async function requireAuth() {
  */
 export async function requireAdmin() {
   const session = await requireAuth()
-  const profile = await adminDb.collection('users').doc(session.uid).get()
+  const profile = await profileOnce(session.uid)
   if (profile.get('role') !== 'admin' || profile.get('deletedAt') != null) {
     notFound()
   }
