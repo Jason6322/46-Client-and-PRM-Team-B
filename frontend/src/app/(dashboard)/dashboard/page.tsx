@@ -3,16 +3,15 @@ import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { SeeAllLink } from '@/features/dashboard/components/SeeAllLink'
+import { activityAcross, followUpsOf, meetingsAcross } from '@/features/dashboard/data'
+import { formatDateTimeIn } from '@/features/dashboard/format'
 import { listOpportunities } from '@/features/opportunities/actions/opportunities.actions'
-import {
-  listOrganisationActivities,
-  listOrganisations,
-  listUpcomingMeetings,
-} from '@/features/organisations/actions/organisations.actions'
+import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
 import { PIPELINE_STAGES } from '@/features/organisations/constants'
 import { describeDue, isDueToday, isOverdue } from '@/features/organisations/followUp'
-import { describeActivity, type OrganisationActivity } from '@/features/organisations/types'
-import { formatDate, formatRelativeTime } from '@/lib/utils'
+import { describeActivity } from '@/features/organisations/types'
+import { formatRelativeTime } from '@/lib/utils'
 import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 
 export const metadata: Metadata = {
@@ -27,12 +26,6 @@ const SEVEN_DAYS_MS = 7 * 86_400_000
 function nextSevenDays() {
   const from = Date.now()
   return { from, to: from + SEVEN_DAYS_MS }
-}
-
-type ActivityWithOrganisation = {
-  activity: OrganisationActivity
-  organisationId: string
-  organisationName: string
 }
 
 /**
@@ -61,51 +54,18 @@ export default async function DashboardPage() {
   // across all of them, filtered by date, at about one read each.
   const recentOrganisations = organisations.slice(0, ACTIVITY_ORGANISATION_LIMIT)
   const { from, to } = nextSevenDays()
-  const [activityResults, meetingResult] = await Promise.all([
-    Promise.all(
-      recentOrganisations.map((organisation) => listOrganisationActivities(organisation.id))
-    ),
-    listUpcomingMeetings({
-      organisationIds: organisations.map((organisation) => organisation.id),
-      from,
-      to,
-    }),
+  const [{ activity }, { meetings: upcomingMeetings }] = await Promise.all([
+    activityAcross(recentOrganisations),
+    meetingsAcross(organisations, from, to),
   ])
-  const organisationNames = new Map(
-    organisations.map((organisation) => [organisation.id, organisation.name])
-  )
+  const recentActivity = activity.slice(0, 5)
 
-  const allActivity: ActivityWithOrganisation[] = activityResults.flatMap((result, index) => {
-    const organisation = recentOrganisations[index]
-    if (!result.data || !organisation) return []
-
-    return result.data
-      .filter((activity) => activity.deletedAt === null)
-      .map((activity) => ({
-        activity,
-        organisationId: organisation.id,
-        organisationName: organisation.name,
-      }))
-  })
-
-  const recentActivity = [...allActivity]
-    .sort((a, b) => b.activity.createdAt - a.activity.createdAt)
-    .slice(0, 5)
-
-  const upcomingMeetings: ActivityWithOrganisation[] = (meetingResult.data ?? []).map(
-    ({ organisationId, activity }) => ({
-      activity,
-      organisationId,
-      organisationName: organisationNames.get(organisationId) ?? 'Unknown organisation',
-    })
-  )
-
-  const withFollowUp = organisations.filter((organisation) => organisation.nextActionDueAt !== null)
+  const withFollowUp = followUpsOf(organisations)
   const overdue = withFollowUp.filter((organisation) =>
-    isOverdue(organisation.nextActionDueAt!, timeZone)
+    isOverdue(organisation.nextActionDueAt, timeZone)
   )
   const dueToday = withFollowUp.filter((organisation) =>
-    isDueToday(organisation.nextActionDueAt!, timeZone)
+    isDueToday(organisation.nextActionDueAt, timeZone)
   )
 
   const byStage = PIPELINE_STAGES.map((stage) => ({
@@ -168,7 +128,11 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Relationships by Pipeline Stage" className="lg:col-span-2">
+        <Card
+          title="Relationships by Pipeline Stage"
+          className="lg:col-span-2"
+          action={<SeeAllLink href="/pipeline" label="organisations by pipeline stage" />}
+        >
           {organisations.length === 0 ? (
             <EmptyState title="No organisations yet" />
           ) : (
@@ -190,7 +154,10 @@ export default async function DashboardPage() {
         </Card>
 
         <div className="space-y-6">
-          <Card title="Recent Activity">
+          <Card
+            title="Recent Activity"
+            action={<SeeAllLink href="/dashboard/activity" label="recent activity" />}
+          >
             {recentActivity.length === 0 ? (
               <EmptyState title="No activity yet" />
             ) : (
@@ -215,7 +182,10 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          <Card title="Upcoming Meetings">
+          <Card
+            title="Upcoming Meetings"
+            action={<SeeAllLink href="/dashboard/meetings" label="upcoming meetings" />}
+          >
             {upcomingMeetings.length === 0 ? (
               <EmptyState
                 title="Nothing in the next 7 days"
@@ -228,7 +198,7 @@ export default async function DashboardPage() {
                   .map(({ activity, organisationId, organisationName }) => (
                     <li key={activity.id} className="text-sm">
                       <span className="text-zinc-700">
-                        {formatDate(new Date(activity.occurredAt!))}
+                        {formatDateTimeIn(activity.occurredAt!, timeZone)}
                       </span>
                       <span className="text-zinc-500"> — </span>
                       <Link
@@ -246,61 +216,63 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          <Card title="Upcoming Follow-ups">
+          <Card
+            title="Upcoming Follow-ups"
+            action={<SeeAllLink href="/dashboard/follow-ups" label="upcoming follow-ups" />}
+          >
             {withFollowUp.length === 0 ? (
               <EmptyState title="No follow-ups scheduled" />
             ) : (
               <ul className="space-y-3">
-                {[...withFollowUp]
-                  .sort((a, b) => a.nextActionDueAt! - b.nextActionDueAt!)
-                  .slice(0, 5)
-                  .map((organisation) => (
-                    <li key={organisation.id} className="text-sm">
-                      <Link
-                        href={`/organisations/${organisation.id}`}
-                        className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
-                      >
-                        {organisation.name}
-                      </Link>
-                      <span
-                        className={
-                          isOverdue(organisation.nextActionDueAt!, timeZone)
-                            ? 'text-red-600'
-                            : 'text-zinc-500'
-                        }
-                      >
-                        {' '}
-                        — {describeDue(organisation.nextActionDueAt!, timeZone)}
-                      </span>
-                      {organisation.nextAction && (
-                        <p className="text-xs text-zinc-500">{organisation.nextAction}</p>
-                      )}
-                    </li>
-                  ))}
+                {withFollowUp.slice(0, 5).map((organisation) => (
+                  <li key={organisation.id} className="text-sm">
+                    <Link
+                      href={`/organisations/${organisation.id}`}
+                      className="hover:text-brand-600 font-medium text-zinc-900 transition-colors"
+                    >
+                      {organisation.name}
+                    </Link>
+                    <span
+                      className={
+                        isOverdue(organisation.nextActionDueAt, timeZone)
+                          ? 'text-red-600'
+                          : 'text-zinc-500'
+                      }
+                    >
+                      {' '}
+                      — {describeDue(organisation.nextActionDueAt, timeZone)}
+                    </span>
+                    {organisation.nextAction && (
+                      <p className="text-xs text-zinc-500">{organisation.nextAction}</p>
+                    )}
+                  </li>
+                ))}
               </ul>
             )}
           </Card>
         </div>
       </div>
 
-      <Card title="Active Partnership Opportunities" className="p-0">
+      <Card
+        title="Active Partnership Opportunities"
+        action={<SeeAllLink href="/dashboard/opportunities" label="active opportunities" />}
+      >
         {openOpportunities.length === 0 ? (
-          <div className="p-6">
-            <EmptyState
-              title="No open opportunities"
-              description="Raise one against an organisation and it will appear here."
-              action={
-                <Link
-                  href="/opportunities/new"
-                  className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
-                >
-                  + New Opportunity
-                </Link>
-              }
-            />
-          </div>
+          <EmptyState
+            title="No open opportunities"
+            description="Raise one against an organisation and it will appear here."
+            action={
+              <Link
+                href="/opportunities/new"
+                className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+              >
+                + New Opportunity
+              </Link>
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
+          // Bleeds to the card's edges so the rows line up with the header padding.
+          <div className="-mx-6 -mb-6 overflow-x-auto">
             <table className="w-full min-w-3xl border-collapse text-left">
               <thead>
                 <tr className="border-b border-zinc-100">
