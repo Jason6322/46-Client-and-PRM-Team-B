@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Pagination } from '@/components/shared/Pagination'
+import { usePagination } from '@/hooks/usePagination'
 import { formatRelativeTime } from '@/lib/utils'
 import type { OrganisationListItem } from '@/features/organisations/types'
 
@@ -54,6 +56,7 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
     if (!term) return organisations
     return organisations.filter((organisation) => matches(organisation, term))
   }, [organisations, search])
+  const { pageItems, ...pagination } = usePagination(filtered, 'organisations')
 
   /**
    * Row click is a convenience for the mouse only. The organisation name stays
@@ -112,7 +115,7 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((organisation) => (
+                {pageItems.map((organisation) => (
                   <tr
                     key={organisation.id}
                     onClick={() => openRow(organisation.id)}
@@ -155,12 +158,10 @@ export function OrganisationsTable({ organisations }: { organisations: Organisat
         )}
       </Card>
 
-      {organisations.length > 0 && (
-        <p className="text-sm text-zinc-500">
-          Showing {filtered.length} of {organisations.length} organisation
-          {organisations.length === 1 ? '' : 's'}
-        </p>
-      )}
+      <Pagination
+        pagination={pagination}
+        label={filtered.length === 1 ? 'organisation' : 'organisations'}
+      />
     </div>
   )
 }
