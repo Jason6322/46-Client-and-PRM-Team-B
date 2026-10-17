@@ -8,7 +8,8 @@ overrides:
   postcss: '^8.5.18'
   # next also bundles an old sharp (image optimization) — force the patched line.
   # GHSA-rgj7-g3m4-5g8c: libheif vulns reachable via sharp <0.35.4.
-  sharp: '^0.35.4'
+  # CVE-2026-96889: librsvg vuln, patched in 0.35.5.
+  sharp: '^0.35.5'
   # Both transitive and build/lint-time only, but they fail the CI security
   # gate (`pnpm audit --audit-level=high`), so they are patched here.
   # js-yaml (GHSA-2883-xcg3-v3hh): maxTotalMergeKeys does not limit CPU use for
@@ -17,6 +18,35 @@ overrides:
   # nanoid (GHSA-2v37-7h3g-55p8): infinite loop when a custom generator's
   # size is 0, via postcss. Advisory lists <3.3.18 as vulnerable.
   nanoid: '^3.3.18'
+  # source-map-js (event-loop DoS via indexed source maps), via next > postcss.
+  # Build-time only. Patched in 1.2.2.
+  'source-map-js': '^1.2.2'
+  # @grpc/grpc-js (getAuthContext can return unauthenticated context; server
+  # error messages leak). Both advisories are server-side and this app is only
+  # a gRPC client (firebase and firebase-admin talking to Firestore), but they
+  # fail the gate. The patched 1.14 line is semver-compatible with the 1.9–1.13
+  # ranges those packages ask for.
+  '@grpc/grpc-js': '^1.14.5'
+  # @fastify/busboy (multipart DoS, CRLF injection), via firebase-admin. The app
+  # never parses multipart requests with it. Patched in 3.2.2.
+  '@fastify/busboy': '^3.2.2'
+  # Dev and test tooling only — never shipped to users — but they fail the gate.
+  # brace-expansion (recursion DoS), via eslint and vitest coverage. Three
+  # major lines are in the tree; each is pinned to its own patched release.
+  'brace-expansion@<2': '^1.1.20'
+  'brace-expansion@>=2 <3': '^2.1.6'
+  'brace-expansion@>=4 <6': '^5.0.11'
+  # tinypool (prototype pollution to RCE in worker options), via vitest. Only
+  # 2.1.2+ is patched; vitest 3 asks for ^1 but the run() API it uses is unchanged.
+  tinypool: '^2.1.2'
+
+auditConfig:
+  ignoreGhsas:
+    # braces <=3.0.3 (stack-exhaustion DoS), via eslint-config-next > fast-glob.
+    # The advisory names 3.0.4 as the fix but no such release exists yet, so it
+    # can't be overridden. Lint-time only on dev machines — never deployed.
+    # Remove this once braces publishes a patched version.
+    - GHSA-vfj7-8cjw-p6xm
 
 allowBuilds:
   '@firebase/util': true
