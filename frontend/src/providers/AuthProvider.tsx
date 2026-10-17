@@ -12,10 +12,14 @@ import type { AuthContextValue, SessionProfile } from '@/types/auth'
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** The server refused this sign-in for good (see createSession). */
+const REJECTED = new Set(['not-invited', 'session-rejected'])
+
 /**
  * Exchange the ID token for a session cookie, and get back the user's profile.
  * Throws 'not-invited' when the server refuses: the account exists in Firebase
- * Auth but no admin added it, or it was deactivated.
+ * Auth but no admin added it, or it was deactivated. 'session-rejected' means
+ * Firebase Auth turned the token down; 'session-failed' is a temporary error.
  *
  * The server reads users/{uid} to decide, and returns what the UI needs from
  * it, so the browser doesn't read the profile again — one Firestore read per
@@ -30,6 +34,7 @@ async function createSession(): Promise<SessionProfile> {
     body: JSON.stringify({ token }),
   })
   if (response.status === 403) throw new Error('not-invited')
+  if (response.status === 401) throw new Error('session-rejected')
   if (!response.ok) throw new Error('session-failed')
   const { profile } = (await response.json()) as { profile: SessionProfile }
   return profile
@@ -78,11 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const sessionProfile = await sessionFor(firebaseUser.uid)
           setUser(firebaseUser)
           setProfile(sessionProfile)
-        } catch {
-          // Not invited, deactivated, or the session could not be created:
-          // drop the Firebase sign-in too so the app shows them as signed out.
-          await clearSessionCookie()
-          await fbSignOut()
+        } catch (error) {
+          // Not invited, deactivated or revoked: drop the Firebase sign-in too.
+          // A temporary failure keeps it (and any cookie that still works), so
+          // the next page load retries without asking for the password again.
+          if (error instanceof Error && REJECTED.has(error.message)) {
+            await clearSessionCookie()
+            await fbSignOut()
+          }
           setUser(null)
           setProfile(null)
         }

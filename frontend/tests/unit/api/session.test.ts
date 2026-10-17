@@ -126,11 +126,22 @@ describe('POST /api/auth/session — invite-only gate', () => {
   })
 
   it('returns 401 for an invalid or revoked token', async () => {
-    verifyIdToken.mockRejectedValue(new Error('auth/id-token-revoked'))
+    verifyIdToken.mockRejectedValue(
+      Object.assign(new Error('revoked'), { code: 'auth/id-token-revoked' })
+    )
 
     const res = await POST(request({ token: 'bad' }))
 
     expect(res.status).toBe(401)
+    expect(cookieSet).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 for a temporary failure, so the browser keeps the sign-in', async () => {
+    profileGet.mockRejectedValue(Object.assign(new Error('Quota exceeded'), { code: 8 }))
+
+    const res = await POST(request({ token: 'id-token' }))
+
+    expect(res.status).toBe(503)
     expect(cookieSet).not.toHaveBeenCalled()
   })
 

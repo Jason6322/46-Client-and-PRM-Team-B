@@ -53,6 +53,8 @@ export default function SignInPage() {
         toast.error(NOT_INVITED_MESSAGE)
       } else if (error instanceof Error && error.message.includes('email-not-verified')) {
         toast.error('Please verify your email before signing in.')
+      } else if (error instanceof Error && error.message === 'session-failed') {
+        toast.error("Couldn't reach the server — please try again in a moment.")
       } else {
         toast.error('Invalid email or password')
       }

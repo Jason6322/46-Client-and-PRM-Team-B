@@ -83,8 +83,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, profile: sessionProfile })
   } catch (error) {
     console.error('Session creation failed:', error)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Firebase Auth rejected the token (expired, revoked, disabled account):
+    // the browser should sign out. Anything else — the network, Firestore's
+    // quota — is temporary, and signing out would only make the user retype
+    // their password.
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'Unavailable' }, { status: 503 })
   }
+}
+
+function isAuthError(error: unknown) {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
+  return typeof code === 'string' && code.startsWith('auth/')
 }
 
 /**
