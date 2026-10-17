@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
+import { PaginatedList } from '@/components/shared/Pagination'
 import { EmptyState } from '@/components/shared/EmptyState'
 import {
   BackToDashboard,
@@ -59,7 +60,11 @@ export default async function ActiveOpportunitiesPage() {
           <p className="border-b border-zinc-100 px-6 py-3 text-xs text-zinc-500">
             {open.length} open {open.length === 1 ? 'opportunity' : 'opportunities'}
           </p>
-          <ul>
+          <PaginatedList
+            storageKey="dashboard-opportunities"
+            label="opportunities"
+            paginationClassName="border-t border-zinc-100 px-6 py-3"
+          >
             {open.map((opportunity) => (
               <li key={opportunity.id} className="border-b border-zinc-50 px-6 py-4 last:border-0">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -105,7 +110,7 @@ export default async function ActiveOpportunitiesPage() {
                 />
               </li>
             ))}
-          </ul>
+          </PaginatedList>
         </Card>
       )}
     </div>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
+import { PaginatedList } from '@/components/shared/Pagination'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { BackToDashboard, DetailFields } from '@/features/dashboard/components/DetailList'
 import { followUpsOf } from '@/features/dashboard/data'
@@ -42,7 +43,11 @@ function FollowUpList({
       >
         {title} <span className="font-normal text-zinc-500">({followUps.length})</span>
       </h2>
-      <ul>
+      <PaginatedList
+        storageKey={`follow-ups-${tone}`}
+        label="follow-ups"
+        paginationClassName="border-t border-zinc-100 px-6 py-3"
+      >
         {followUps.map((organisation) => {
           const contact = organisation.primaryContact
           return (
@@ -96,7 +101,7 @@ function FollowUpList({
             </li>
           )
         })}
-      </ul>
+      </PaginatedList>
     </Card>
   )
 }

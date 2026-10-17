@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
+import { PaginatedList } from '@/components/shared/Pagination'
 import { EmptyState } from '@/components/shared/EmptyState'
 import {
   BackToDashboard,
@@ -109,7 +110,11 @@ export default async function RecentActivityPage({
           <p className="border-b border-zinc-100 px-6 py-3 text-xs text-zinc-500">
             {shown.length} {shown.length === 1 ? 'entry' : 'entries'}
           </p>
-          <ul>
+          <PaginatedList
+            storageKey="dashboard-activity"
+            label="entries"
+            paginationClassName="border-t border-zinc-100 px-6 py-3"
+          >
             {shown.map(({ activity: entry, organisationId, organisationName }) => {
               const logged = isLoggedActivity(entry)
               return (
@@ -179,7 +184,7 @@ export default async function RecentActivityPage({
                 </li>
               )
             })}
-          </ul>
+          </PaginatedList>
         </Card>
       )}
     </div>
