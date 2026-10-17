@@ -117,6 +117,12 @@ const allOrganisations = cached(
   [CACHE_TAGS.organisations]
 )
 
+async function readOrganisation(id: string) {
+  const snapshot = await adminDb.collection(COLLECTION).doc(id).get()
+  const data = snapshot.data()
+  return data ? serialise(snapshot.id, data) : null
+}
+
 /** An organisation's latest 50 activities, newest first. */
 const organisationActivities = cached(
   async (organisationId: string) => {
@@ -608,9 +614,17 @@ export async function createOrganisation(input: unknown): Promise<ActionResult<{
 export async function getOrganisation(id: string): Promise<ActionResult<OrganisationListItem>> {
   await requireAuth()
 
+  const parsed = idSchema.safeParse(id)
+  if (!parsed.success) return { success: false, error: 'Organisation not found' }
+
   try {
-    // Served from the cached collection rather than a read of its own.
-    const organisation = (await allOrganisations()).find((entry) => entry.id === id)
+    // Served from the cached collection rather than a read of its own. The
+    // list is ordered by lastActivityAt, which leaves out documents without
+    // that field (e.g. ones added in the Firebase console), so a miss falls
+    // back to reading the document.
+    const organisation =
+      (await allOrganisations()).find((entry) => entry.id === parsed.data) ??
+      (await readOrganisation(parsed.data))
 
     if (!organisation || organisation.deletedAt !== null) {
       return { success: false, error: 'Organisation not found' }

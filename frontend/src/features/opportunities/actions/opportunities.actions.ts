@@ -5,6 +5,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { requireAuth } from '@/actions/auth.actions'
 import { CACHE_TAGS, cached, invalidate } from '@/lib/cache'
 import { adminDb } from '@/lib/firebase/admin'
+import { idSchema } from '@/lib/validations/common'
 import { readTeamMembers, toTeamMember } from '@/lib/teamMembers'
 import { createOpportunitySchema, updateOpportunitySchema } from '@/lib/validations/opportunity'
 import type { ActionResult } from '@/types'
@@ -69,6 +70,12 @@ const activeOpportunities = cached(
   [CACHE_TAGS.opportunities]
 )
 
+async function readOpportunity(id: string) {
+  const snapshot = await adminDb.collection(COLLECTION).doc(id).get()
+  const data = snapshot.data()
+  return data ? serialise(snapshot.id, data) : null
+}
+
 /** Every open opportunity, most recently updated first. */
 export async function listOpportunities(): Promise<ActionResult<OpportunityListItem[]>> {
   await requireAuth()
@@ -102,9 +109,19 @@ export async function listOpportunitiesForOrganisation(
 export async function getOpportunity(id: string): Promise<ActionResult<OpportunityListItem>> {
   await requireAuth()
 
+  const parsed = idSchema.safeParse(id)
+  if (!parsed.success) return { success: false, error: 'Opportunity not found' }
+
   try {
-    const opportunity = (await activeOpportunities()).find((entry) => entry.id === id)
-    if (!opportunity) return { success: false, error: 'Opportunity not found' }
+    // The cached list is ordered by updatedAt, which leaves out documents
+    // without that field (e.g. ones added in the Firebase console), so a miss
+    // falls back to reading the document.
+    const opportunity =
+      (await activeOpportunities()).find((entry) => entry.id === parsed.data) ??
+      (await readOpportunity(parsed.data))
+    if (!opportunity || opportunity.deletedAt !== null) {
+      return { success: false, error: 'Opportunity not found' }
+    }
 
     return { success: true, data: opportunity }
   } catch {
