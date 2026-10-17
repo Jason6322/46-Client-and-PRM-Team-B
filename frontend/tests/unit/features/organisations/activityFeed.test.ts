@@ -14,7 +14,7 @@ const organisationsGet = vi.fn()
 /** A query whose builder methods chain and whose get() is `get`. */
 function query(get: () => unknown) {
   const self: Record<string, unknown> = { get }
-  for (const method of ['orderBy', 'limit', 'where']) self[method] = () => self
+  for (const method of ['orderBy', 'limit', 'where', 'startAfter']) self[method] = () => self
   return self
 }
 
@@ -53,14 +53,16 @@ function activityDoc(
   organisationId: string,
   fields: { createdAt?: number; occurredAt?: number; type?: string; archived?: boolean }
 ) {
+  const data = () => ({
+    type: fields.type ?? 'Note',
+    createdAt: at(fields.createdAt ?? 0),
+    occurredAt: fields.occurredAt === undefined ? null : at(fields.occurredAt),
+    deletedAt: fields.archived ? at(1) : null,
+  })
   return {
     id,
-    data: () => ({
-      type: fields.type ?? 'Note',
-      createdAt: at(fields.createdAt ?? 0),
-      occurredAt: fields.occurredAt === undefined ? null : at(fields.occurredAt),
-      deletedAt: fields.archived ? at(1) : null,
-    }),
+    data,
+    get: (field: string) => (data() as Record<string, unknown>)[field],
     ref: { parent: { parent: { id: organisationId, parent: { id: 'organisations' } } } },
   }
 }
@@ -95,6 +97,40 @@ describe('activity across organisations', () => {
         ['a', 'a1'],
       ])
       expect(perOrganisationGet).not.toHaveBeenCalled()
+    })
+
+    it('reads further pages when archived entries leave it short', async () => {
+      collectionGroupGet
+        .mockResolvedValueOnce({
+          size: 4,
+          docs: [
+            activityDoc('old2', 'old', { createdAt: 400 }),
+            activityDoc('old1', 'old', { createdAt: 300 }),
+            activityDoc('a3', 'a', { createdAt: 250, archived: true }),
+            activityDoc('a2', 'a', { createdAt: 200 }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          size: 1,
+          docs: [activityDoc('b1', 'b', { createdAt: 100 })],
+        })
+
+      const result = await listRecentActivity({ limit: 2 })
+
+      expect(result.data?.map((entry) => entry.activity.id)).toEqual(['a2', 'b1'])
+      expect(collectionGroupGet).toHaveBeenCalledTimes(2)
+    })
+
+    it('stops after a short page', async () => {
+      collectionGroupGet.mockResolvedValue({
+        size: 1,
+        docs: [activityDoc('old1', 'old', { createdAt: 300 })],
+      })
+
+      const result = await listRecentActivity({ limit: 2 })
+
+      expect(result.data).toEqual([])
+      expect(collectionGroupGet).toHaveBeenCalledTimes(1)
     })
 
     it('falls back to each organisation when the index is not deployed', async () => {
@@ -170,6 +206,17 @@ describe('activity across organisations', () => {
 
       expect(result.data?.map((entry) => entry.activity.id)).toEqual(['m1'])
       expect(perOrganisationGet).toHaveBeenCalledTimes(2)
+    })
+
+    it('rejects a range longer than the dashboard needs', async () => {
+      const result = await listUpcomingMeetings({
+        organisationIds: ['a'],
+        from: 0,
+        to: 365 * 24 * 60 * 60 * 1000,
+      })
+
+      expect(result.success).toBe(false)
+      expect(collectionGroupGet).not.toHaveBeenCalled()
     })
   })
 })

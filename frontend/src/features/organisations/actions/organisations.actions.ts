@@ -152,22 +152,69 @@ function withOrganisationId(doc: FirebaseFirestore.QueryDocumentSnapshot) {
  * query per organisation — the same data, at the old cost.
  */
 function isMissingIndex(error: unknown) {
-  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 9
+  const missing =
+    typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 9
+  // The fallback costs one query per organisation — a few hundred reads per
+  // dashboard load — so make it visible in the server log rather than silent.
+  if (missing) {
+    console.warn(
+      'Collection-group index missing; reading each organisation instead. Deploy it with `firebase deploy --only firestore:indexes`.'
+    )
+  }
+  return missing
 }
 
-/** Most recently recorded activity across every organisation, archived entries included. */
-const recentActivityFeed = cached(
-  async (limit: number): Promise<ActivityWithOrganisationId[]> => {
-    const snapshot = await adminDb
-      .collectionGroup(ACTIVITIES)
-      .orderBy('createdAt', 'desc')
-      .limit(limit)
-      .get()
-    return snapshot.docs.flatMap(withOrganisationId)
+/** A Firestore Timestamp as plain numbers, so it can be part of a cache key. */
+type FeedCursor = [seconds: number, nanoseconds: number]
+
+/**
+ * One page of the most recently recorded activity across every organisation,
+ * archived entries included, and the cursor for the page after it (null when
+ * there is none).
+ */
+const recentActivityPage = cached(
+  async (
+    size: number,
+    after: FeedCursor | null
+  ): Promise<{ entries: ActivityWithOrganisationId[]; next: FeedCursor | null }> => {
+    let query = adminDb.collectionGroup(ACTIVITIES).orderBy('createdAt', 'desc').limit(size)
+    if (after) query = query.startAfter(new Timestamp(after[0], after[1]))
+    const snapshot = await query.get()
+    const lastCreatedAt: unknown = snapshot.docs.at(-1)?.get('createdAt')
+    return {
+      entries: snapshot.docs.flatMap(withOrganisationId),
+      next:
+        snapshot.size === size && lastCreatedAt instanceof Timestamp
+          ? [lastCreatedAt.seconds, lastCreatedAt.nanoseconds]
+          : null,
+    }
   },
-  'recent-activity-feed',
+  'recent-activity-page',
   [CACHE_TAGS.activityFeed]
 )
+
+/** Bounds the reads when most recent entries are archived: at most this many pages. */
+const RECENT_ACTIVITY_PAGES = 5
+
+/**
+ * The newest activities across organisations, keeping only what `keep`
+ * accepts, until there are `limit` of them or the pages run out.
+ */
+async function recentActivityFeed(
+  limit: number,
+  keep: (entry: ActivityWithOrganisationId) => boolean
+) {
+  const kept: ActivityWithOrganisationId[] = []
+  let after: FeedCursor | null = null
+  for (let page = 0; page < RECENT_ACTIVITY_PAGES && kept.length < limit; page++) {
+    const { entries, next }: Awaited<ReturnType<typeof recentActivityPage>> =
+      await recentActivityPage(limit * 2, after)
+    kept.push(...entries.filter(keep))
+    if (!next) break
+    after = next
+  }
+  return kept.slice(0, limit)
+}
 
 const RECENT_ACTIVITY_MAX = 100
 const recentActivitySchema = z.object({
@@ -179,10 +226,11 @@ const recentActivitySchema = z.object({
  * first, leaving out archived entries and archived organisations — for the
  * dashboard's Recent Activity and its "See all" page.
  *
- * One collection-group query, so it costs about `limit` reads (twice that, to
+ * Collection-group queries, so it costs about `limit` reads (twice that, to
  * leave room for the archived entries filtered out here) however many
- * organisations there are. Reading every organisation's timeline instead
- * costs every activity in the CRM.
+ * organisations there are. When most of a page is filtered out it reads
+ * another, up to RECENT_ACTIVITY_PAGES. Reading every organisation's timeline
+ * instead costs every activity in the CRM.
  */
 export async function listRecentActivity(
   input: z.input<typeof recentActivitySchema>
@@ -198,8 +246,10 @@ export async function listRecentActivity(
       (organisation) => organisation.deletedAt === null
     )
     const activeIds = new Set(active.map((organisation) => organisation.id))
+    const isShown = ({ organisationId, activity }: ActivityWithOrganisationId) =>
+      activeIds.has(organisationId) && activity.deletedAt === null
 
-    const feed = await recentActivityFeed(limit * 2).catch(async (error: unknown) => {
+    const feed = await recentActivityFeed(limit, isShown).catch(async (error: unknown) => {
       if (!isMissingIndex(error)) throw error
       const timelines = await Promise.all(
         active.map(async (organisation) =>
@@ -209,18 +259,14 @@ export async function listRecentActivity(
           }))
         )
       )
-      return timelines.flat().sort((a, b) => b.activity.createdAt - a.activity.createdAt)
+      return timelines
+        .flat()
+        .filter(isShown)
+        .sort((a, b) => b.activity.createdAt - a.activity.createdAt)
+        .slice(0, limit)
     })
 
-    return {
-      success: true,
-      data: feed
-        .filter(
-          ({ organisationId, activity }) =>
-            activeIds.has(organisationId) && activity.deletedAt === null
-        )
-        .slice(0, limit),
-    }
+    return { success: true, data: feed }
   } catch {
     return { success: false, error: 'Failed to load activity' }
   }
@@ -267,11 +313,16 @@ function toActivity(doc: FirebaseFirestore.QueryDocumentSnapshot): OrganisationA
   }
 }
 
-const upcomingMeetingsSchema = z.object({
-  organisationIds: z.array(idSchema).max(500),
-  from: z.number().int(),
-  to: z.number().int(),
-})
+/** The dashboard's 90-day "See all", plus slack. Bounds the reads of one call. */
+const MAX_UPCOMING_RANGE = 92 * 24 * 60 * 60 * 1000
+
+const upcomingMeetingsSchema = z
+  .object({
+    organisationIds: z.array(idSchema).max(500),
+    from: z.number().int(),
+    to: z.number().int(),
+  })
+  .refine(({ from, to }) => to >= from && to - from <= MAX_UPCOMING_RANGE)
 
 /**
  * Meetings between `from` and `to` (epoch millis) across the given
@@ -544,7 +595,8 @@ export async function createOrganisation(input: unknown): Promise<ActionResult<{
       _schemaVersion: 1,
     })
 
-    invalidate(CACHE_TAGS.organisations, CACHE_TAGS.activityFeed)
+    // A new organisation has no activity yet, so the activity caches stand.
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     return { success: true, data: { id: ref.id } }
   } catch {
@@ -638,7 +690,10 @@ export async function updateOrganisation(id: string, input: unknown): Promise<Ac
         lastActivityAt: FieldValue.serverTimestamp(),
       })
 
-    invalidate(CACHE_TAGS.organisations, CACHE_TAGS.opportunities)
+    // Opportunities carry a copy of the organisation's name that this doesn't
+    // touch (it catches up when the opportunity is next saved), so their
+    // cache stands.
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)
     return { success: true }
