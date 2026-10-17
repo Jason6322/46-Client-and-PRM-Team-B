@@ -90,7 +90,7 @@ describe('POST /api/auth/session — invite-only gate', () => {
     const res = await POST(request({ token: 'id-token' }))
 
     expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'not-invited' })
+    expect((await res.json()).detail).toBe('not-invited')
     expect(cookieSet).not.toHaveBeenCalled()
   })
 

@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
+import { z } from 'zod'
+import { problem } from '@/lib/api/problem'
 import { CACHE_TAGS, invalidate } from '@/lib/cache'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { SessionProfile } from '@/types/auth'
@@ -8,6 +10,11 @@ import { cookies } from 'next/headers'
 
 const SESSION_COOKIE_NAME = '__session'
 const SESSION_DURATION_MS = 60 * 60 * 24 * 14 * 1000 // 14 days
+
+const sessionRequestSchema = z.object({ token: z.string().min(1) })
+
+/** AuthProvider tells this refusal apart by its detail, 'not-invited'. */
+const notInvited = () => problem(403, 'Forbidden', 'not-invited')
 
 function isSameHost(origin: string, host: string | null) {
   try {
@@ -27,15 +34,15 @@ export async function POST(req: NextRequest) {
   // send Origin on a POST; non-browser callers can't ride a victim's cookies.
   const origin = req.headers.get('origin')
   if (origin && !isSameHost(origin, req.headers.get('host'))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return problem(403, 'Forbidden', 'Cross-origin request')
   }
 
   try {
-    const { token } = (await req.json()) as { token?: unknown }
-
-    if (typeof token !== 'string' || !token) {
-      return NextResponse.json({ error: 'Missing token' }, { status: 400 })
+    const parsed = sessionRequestSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) {
+      return problem(400, 'Bad Request', 'Missing token')
     }
+    const { token } = parsed.data
 
     // Invite-only: anyone holding the public API key can create a Firebase Auth
     // account without the app, so access is decided here — only people an admin
@@ -45,13 +52,13 @@ export async function POST(req: NextRequest) {
     // address is unverified.
     const decoded = await adminAuth.verifyIdToken(token, true)
     if (decoded.email_verified !== true) {
-      return NextResponse.json({ error: 'not-invited' }, { status: 403 })
+      return notInvited()
     }
     const { uid } = decoded
     const profileRef = adminDb.collection('users').doc(uid)
     const profile = await profileRef.get()
     if (!profile.exists || profile.get('deletedAt') != null) {
-      return NextResponse.json({ error: 'not-invited' }, { status: 403 })
+      return notInvited()
     }
 
     // The profile is returned to AuthProvider, which used to read it again from
@@ -88,9 +95,9 @@ export async function POST(req: NextRequest) {
     // quota — is temporary, and signing out would only make the user retype
     // their password.
     if (isAuthError(error)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return problem(401, 'Unauthorized', 'The sign-in was rejected')
     }
-    return NextResponse.json({ error: 'Unavailable' }, { status: 503 })
+    return problem(503, 'Service Unavailable', 'Could not create the session — try again')
   }
 }
 
