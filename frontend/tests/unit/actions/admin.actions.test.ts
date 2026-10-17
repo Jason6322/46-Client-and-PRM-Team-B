@@ -5,6 +5,8 @@ const getUser = vi.fn()
 const deleteUser = vi.fn()
 const revokeRefreshTokens = vi.fn()
 const updateUser = vi.fn()
+const listAuthUsers = vi.fn()
+const profilesGet = vi.fn()
 const profileGet = vi.fn()
 const profileSet = vi.fn()
 
@@ -13,15 +15,16 @@ vi.mock('@/actions/auth.actions', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/firebase/admin', () => ({
-  adminAuth: { getUser, deleteUser, revokeRefreshTokens, updateUser },
+  adminAuth: { getUser, deleteUser, revokeRefreshTokens, updateUser, listUsers: listAuthUsers },
   adminDb: {
     collection: () => ({
+      get: profilesGet,
       doc: () => ({ delete: profileDelete, get: profileGet, set: profileSet }),
     }),
   },
 }))
 
-const { grantAccess, removeUser } = await import('@/actions/admin.actions')
+const { grantAccess, listUsers, removeUser } = await import('@/actions/admin.actions')
 
 function account(lastSignInTime: string | undefined) {
   return { uid: 'u2', metadata: { lastSignInTime } }
@@ -102,5 +105,21 @@ describe('grantAccess', () => {
     await grantAccess('u2')
 
     expect(updateUser).not.toHaveBeenCalled()
+  })
+})
+
+describe('listUsers', () => {
+  it('reads every page of Firebase Auth accounts', async () => {
+    vi.clearAllMocks()
+    profilesGet.mockResolvedValue({ docs: [] })
+    const record = (uid: string) => ({ uid, email: uid + '@b.co', metadata: {} })
+    listAuthUsers
+      .mockResolvedValueOnce({ users: [record('u1')], pageToken: 'next' })
+      .mockResolvedValueOnce({ users: [record('u2')] })
+
+    const result = await listUsers()
+
+    expect(listAuthUsers).toHaveBeenLastCalledWith(1000, 'next')
+    expect(result.data?.map((user) => user.uid)).toEqual(['u1', 'u2'])
   })
 })

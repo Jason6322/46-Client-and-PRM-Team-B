@@ -85,15 +85,27 @@ function lastSignIn(record: UserRecord | undefined) {
   return value ? new Date(value).getTime() : null
 }
 
+/** Every Firebase Auth account — listUsers returns at most 1,000 per page. */
+async function allAccounts() {
+  const accounts: UserRecord[] = []
+  let pageToken: string | undefined
+  do {
+    const page = await adminAuth.listUsers(1000, pageToken)
+    accounts.push(...page.users)
+    pageToken = page.pageToken
+  } while (pageToken)
+  return accounts
+}
+
 export async function listUsers(): Promise<ActionResult<AdminUser[]>> {
   await requireAdmin()
 
   try {
     const [profiles, accounts] = await Promise.all([
       adminDb.collection('users').get(),
-      adminAuth.listUsers(1000),
+      allAccounts(),
     ])
-    const accountsByUid = new Map(accounts.users.map((record) => [record.uid, record]))
+    const accountsByUid = new Map(accounts.map((record) => [record.uid, record]))
 
     const users: AdminUser[] = profiles.docs.map((doc) => {
       const account = accountsByUid.get(doc.id)
