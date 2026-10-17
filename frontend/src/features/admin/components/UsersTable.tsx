@@ -13,6 +13,8 @@ import {
 } from '@/actions/admin.actions'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Pagination } from '@/components/shared/Pagination'
+import { usePagination } from '@/hooks/usePagination'
 import { resetPassword } from '@/lib/firebase/auth'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import type { ActionResult } from '@/types'
@@ -241,6 +243,8 @@ function RowActions({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
 }
 
 export function UsersTable({ users, currentUid }: { users: AdminUser[]; currentUid: string }) {
+  const { pageItems, ...pagination } = usePagination(users, 'admin-users')
+
   if (users.length === 0) {
     return (
       <Card>
@@ -268,7 +272,7 @@ export function UsersTable({ users, currentUid }: { users: AdminUser[]; currentU
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
+              {pageItems.map((user) => {
                 const status = STATUS_LABELS[user.status]
                 return (
                   <tr
@@ -306,10 +310,13 @@ export function UsersTable({ users, currentUid }: { users: AdminUser[]; currentU
         </div>
       </Card>
 
+      <Pagination pagination={pagination} label={users.length === 1 ? 'user' : 'users'} />
+
       <p className="text-sm text-zinc-500">
         <span className="font-medium text-zinc-700">No access</span> means someone has a Firebase
-        account (e.g. from before sign-up was closed) but was never added, so they can&apos;t sign
-        in. Deactivated users are signed out everywhere and can&apos;t sign in until reactivated.{' '}
+        account but was never added, so they can&apos;t sign in. Accounts from before sign-up was
+        closed may show as Active — deactivate or remove any you don&apos;t recognise. Deactivated
+        users are signed out everywhere and can&apos;t sign in until reactivated.{' '}
         <span className="font-medium text-zinc-700">Remove</span> undoes an invite — use it if you
         added the wrong email.
       </p>
