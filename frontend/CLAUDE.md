@@ -10,6 +10,7 @@ This is **Next.js 16** — APIs, file conventions, and routing differ from earli
 Before writing any Next.js code, check `node_modules/next/dist/docs/` for breaking changes.
 
 Key Next.js 16 changes from training data:
+
 - `middleware.ts` is deprecated — use `proxy.ts` with `export function proxy()`
 - App Router is the only supported router
 - Server Actions are stable and the preferred mutation pattern
@@ -19,17 +20,20 @@ Key Next.js 16 changes from training data:
 ## Server vs Client Components
 
 **Default: Server Component.** Add `'use client'` only when you need:
+
 - React hooks (`useState`, `useEffect`, `useContext`, etc.)
 - Event handlers (`onClick`, `onChange`, etc.)
 - Browser APIs (`window`, `localStorage`, `navigator`, etc.)
 - Third-party client-only libraries
 
 **Never add `'use client'` to:**
+
 - Files that only fetch data and render HTML
 - Files that only import server-only libraries
 - Layout files unless they truly need client state
 
 **Never import in a Server Component:**
+
 - `firebase/auth`, `firebase/firestore` (client SDK)
 - `@/lib/firebase/client` (client SDK)
 - Any hook from `@/hooks/` (they're all client hooks)
@@ -72,8 +76,9 @@ src/
 ```
 
 **Import rules:**
+
 - Always use `@/` alias — never `../../` more than one level
-- Features import from `@/lib/`, `@/hooks/`, `@/types/` but not from other features
+- Features import from `@/lib/`, `@/hooks/`, `@/types/`. From another feature, import only its `types`, `constants` and Server Actions (e.g. `features/dashboard/data.ts` reads through the organisations actions) — never its components or hooks
 - `app/` pages import from `@/components/`, `@/features/`, `@/actions/`
 
 ---
@@ -127,6 +132,7 @@ export async function updateProfile(input: UpdateProfileInput): Promise<ActionRe
 ## Design System
 
 See `docs/DESIGN.md` for the full design reference:
+
 - Tailwind v4 CSS-first config, `@theme` tokens
 - Color system, typography scale, spacing
 - Button, input, card, badge patterns
