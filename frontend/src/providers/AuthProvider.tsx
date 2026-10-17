@@ -6,8 +6,6 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { getClientAuth, getClientDb } from '@/lib/firebase/client'
 import {
   signInWithEmail as fbSignInWithEmail,
-  signUpWithEmail as fbSignUpWithEmail,
-  signInWithGoogle as fbSignInWithGoogle,
   signOut as fbSignOut,
   getIdToken,
 } from '@/lib/firebase/auth'
@@ -16,30 +14,14 @@ import type { UserProfile } from '@/types/firestore'
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-async function syncUserProfile(user: User): Promise<UserProfile> {
+/**
+ * Read the signed-in user's profile. Profiles are created only by an admin
+ * (/admin, Admin SDK) — sign-up is invite-only — so this never creates one.
+ */
+async function syncUserProfile(user: User): Promise<UserProfile | null> {
   const profileRef = doc(getClientDb(), 'users', user.uid)
   const snap = await getDoc(profileRef)
-
-  if (!snap.exists()) {
-    const newProfile: Omit<UserProfile, 'createdAt' | 'updatedAt'> = {
-      uid: user.uid,
-      email: user.email ?? '',
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      role: 'user',
-      _schemaVersion: 1,
-    }
-    await setDoc(profileRef, {
-      ...newProfile,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    })
-    const createdSnap = await getDoc(profileRef)
-    if (!createdSnap.exists()) {
-      throw new Error('Failed to create user profile document')
-    }
-    return createdSnap.data() as UserProfile
-  }
+  if (!snap.exists()) return null
 
   const existing = snap.data() as UserProfile
 
@@ -62,14 +44,20 @@ async function syncUserProfile(user: User): Promise<UserProfile> {
   return existing
 }
 
+/**
+ * Exchange the ID token for a session cookie. Throws 'not-invited' when the
+ * server refuses: the account exists in Firebase Auth but no admin added it.
+ */
 async function setSessionCookie(): Promise<void> {
   const token = await getIdToken()
   if (!token) return
-  await fetch('/api/auth/session', {
+  const response = await fetch('/api/auth/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
   })
+  if (response.status === 403) throw new Error('not-invited')
+  if (!response.ok) throw new Error('session-failed')
 }
 
 async function clearSessionCookie(): Promise<void> {
@@ -92,10 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false)
           return
         }
-        setUser(firebaseUser)
-        const userProfile = await syncUserProfile(firebaseUser)
-        setProfile(userProfile)
-        await setSessionCookie()
+        try {
+          await setSessionCookie()
+          const userProfile = await syncUserProfile(firebaseUser)
+          if (!userProfile) throw new Error('not-invited')
+          setUser(firebaseUser)
+          setProfile(userProfile)
+        } catch {
+          // Not invited, deactivated, or the session could not be created:
+          // drop the Firebase sign-in too so the app shows them as signed out.
+          await clearSessionCookie()
+          await fbSignOut()
+          setUser(null)
+          setProfile(null)
+        }
       } else {
         setUser(null)
         setProfile(null)
@@ -107,20 +105,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe()
   }, [])
 
-  const signInWithEmail = async (email: string, password: string) => {
-    await fbSignInWithEmail(email, password)
-    // Ensure server session cookie exists before caller redirects to protected routes.
-    await setSessionCookie()
+  /** Run a sign-in, then make sure the server will issue a session for it. */
+  const withSession = async (signIn: () => Promise<unknown>) => {
+    await signIn()
+    try {
+      // Ensure server session cookie exists before caller redirects to protected routes.
+      await setSessionCookie()
+    } catch (error) {
+      await fbSignOut()
+      throw error
+    }
   }
 
-  const signUpWithEmail = async (email: string, password: string, displayName: string) => {
-    await fbSignUpWithEmail(email, password, displayName)
-  }
-
-  const signInWithGoogle = async () => {
-    await fbSignInWithGoogle()
-    await setSessionCookie()
-  }
+  const signInWithEmail = (email: string, password: string) =>
+    withSession(() => fbSignInWithEmail(email, password))
 
   const signOut = async () => {
     // Clear server session cookie first so proxy no longer treats the user as authenticated.
@@ -137,8 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         loading,
         signInWithEmail,
-        signUpWithEmail,
-        signInWithGoogle,
         signOut,
       }}
     >

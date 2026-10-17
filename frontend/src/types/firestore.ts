@@ -23,11 +23,16 @@ export interface UserProfile {
   email: string
   displayName: string | null
   photoURL: string | null
-  role: 'user'
+  role: UserRole
   createdAt: Timestamp
   updatedAt: Timestamp
+  /** Set when an admin deactivates the account; the user can no longer sign in. */
+  deletedAt?: Timestamp | null
   _schemaVersion: 1
 }
+
+/** 'admin' can add, deactivate and promote users from /admin. */
+export type UserRole = 'user' | 'admin'
 
 export type CreateUserProfileInput = Omit<UserProfile, 'createdAt' | 'updatedAt'>
 
