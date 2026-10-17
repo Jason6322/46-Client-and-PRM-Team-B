@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "seed": "node scripts/seed.mjs",
-    "make-admin": "node scripts/make-admin.mjs"
+    "make-admin": "node scripts/make-admin.mjs",
+    "revoke-uninvited": "node scripts/revoke-uninvited.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

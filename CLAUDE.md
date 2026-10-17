@@ -303,6 +303,8 @@ pnpm --filter frontend seed               # Dry run of the demo data (40 orgs, a
 pnpm --filter frontend seed -- --write    # Write it — shared project, visible on the live site
 pnpm --filter frontend seed -- --clean    # Remove everything the seed wrote (`_seed: true`)
 pnpm --filter frontend make-admin -- you@example.com   # Make an existing account an admin (bootstraps /admin)
+pnpm --filter frontend revoke-uninvited                # Dry run: accounts with no active profile
+pnpm --filter frontend revoke-uninvited -- --write     # Sign those accounts out everywhere (one-off at rollout)
 ```
 
 ---
