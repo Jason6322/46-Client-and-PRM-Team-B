@@ -1,8 +1,8 @@
 'use server'
 
-import { adminAuth } from '@/lib/firebase/admin'
+import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { ActionResult } from '@/types'
 
 const SESSION_COOKIE_NAME = '__session'
@@ -33,6 +33,19 @@ export async function requireAuth() {
   const session = await getServerSession()
   if (!session) {
     redirect('/auth/signin')
+  }
+  return session
+}
+
+/**
+ * Require an admin (users/{uid}.role == 'admin'). Anyone else gets a 404, so
+ * the admin screens don't advertise themselves.
+ */
+export async function requireAdmin() {
+  const session = await requireAuth()
+  const profile = await adminDb.collection('users').doc(session.uid).get()
+  if (profile.get('role') !== 'admin' || profile.get('deletedAt') != null) {
+    notFound()
   }
   return session
 }

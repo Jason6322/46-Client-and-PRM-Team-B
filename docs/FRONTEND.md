@@ -14,11 +14,11 @@ Next.js 16 App Router with React 19, TypeScript (strict), and Tailwind CSS v4.
 
 ### Route Groups
 
-| Group | Path | Purpose |
-|-------|------|---------|
-| `(auth)` | `/auth/signin`, `/auth/signup` | Minimal centered layout, no sidebar |
-| `(dashboard)` | `/dashboard`, `/profile`, `/settings` | Full app shell with sidebar + navbar |
-| _(root)_ | `/` | Landing/marketing page |
+| Group         | Path                                                          | Purpose                              |
+| ------------- | ------------------------------------------------------------- | ------------------------------------ |
+| `(auth)`      | `/auth/signin`, `/auth/forgot-password`                       | Minimal centered layout, no sidebar  |
+| `(dashboard)` | `/dashboard`, `/profile`, `/settings`, `/admin` (admins only) | Full app shell with sidebar + navbar |
+| _(root)_      | `/`                                                           | Landing/marketing page               |
 
 ### Feature Modules
 
@@ -39,12 +39,12 @@ Use the `/new-feature` skill to scaffold this structure.
 
 ### Data Fetching
 
-| Context | Method | When |
-|---------|--------|------|
-| Server Component | `adminDb.collection(...).get()` | One-time, SSR |
-| Client Component | `useCollection()` hook | Real-time subscription |
-| Server Action | `adminDb` + `requireAuth()` | Mutations |
-| Route Handler | `adminAuth.verifySessionCookie()` | Session management |
+| Context          | Method                            | When                   |
+| ---------------- | --------------------------------- | ---------------------- |
+| Server Component | `adminDb.collection(...).get()`   | One-time, SSR          |
+| Client Component | `useCollection()` hook            | Real-time subscription |
+| Server Action    | `adminDb` + `requireAuth()`       | Mutations              |
+| Route Handler    | `adminAuth.verifySessionCookie()` | Session management     |
 
 ### Styling
 
@@ -64,8 +64,15 @@ import { cn } from '@/lib/utils'
 ```
 / (landing) → /auth/signin → /dashboard
                   ↓
-             /auth/signup → /dashboard
+             /auth/forgot-password → reset email → /auth/signin
 ```
+
+Sign-up is **invite-only**. An admin adds people at `/admin` (`actions/admin.actions.ts`), which
+creates their Firebase account and `users/{uid}` profile and emails them a link to set a password.
+`POST /api/auth/session` refuses a cookie (403 `not-invited`) to any account without an active
+profile (anyone can create a Firebase account with the public API key), and `AuthProvider` signs
+them out. There is no Google sign-in. The
+first admin is made with `pnpm --filter frontend make-admin -- <email>`.
 
 - `AuthProvider` listens to `onAuthStateChanged` — wraps the root layout
 - `useAuth()` hook accesses auth state in any Client Component
@@ -74,6 +81,7 @@ import { cn } from '@/lib/utils'
 ## Adding a Page
 
 Use the `/new-page` skill. Key checklist:
+
 - Correct route group (`(auth)` or `(dashboard)`)
 - Export `metadata` object
 - Call `requireAuth()` in protected pages

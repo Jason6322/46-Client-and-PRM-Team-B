@@ -27,6 +27,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token[claim] == true;
     }
 
+    // Invite-only access: a signed-in Firebase account is not enough (anyone can
+    // create one, e.g. with Google). Only people an admin added at /admin have
+    // a users/{uid} profile, and deactivating sets its deletedAt.
+    function isMember() {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isAuthenticated()
+        && exists(userPath)
+        && get(userPath).data.get('deletedAt', null) == null;
+    }
+
     // Soft-delete guard — filters out logically deleted documents.
     // Include in read rules: allow read: if isOwner(userId) && notDeleted();
     function notDeleted() {
@@ -38,26 +48,25 @@ service cloud.firestore {
     // users/{userId}
     // Each user can only read and update their own profile.
     // Admins can read any profile.
-    // Creation is triggered by AuthProvider on first sign-in (syncUserProfile).
+    // Profiles are created only by an admin from /admin (Admin SDK) — sign-up is
+    // invite-only, so a client may never create its own.
     match /users/{userId} {
       allow read: if isAuthenticated() && (isOwner(userId) || isAdmin()) && notDeleted();
 
-      allow create: if isAuthenticated() && isOwner(userId)
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasAll(['uid', 'email', 'role', 'createdAt', 'updatedAt', '_schemaVersion'])
-        && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'updatedAt', '_schemaVersion'])
-        && request.resource.data.role == 'user';  // only admin SDK can set 'admin' role
+      allow create: if false;
 
-      allow update: if isAuthenticated() && isOwner(userId)
-        && request.resource.data.uid == resource.data.uid    // uid is immutable
-        && request.resource.data.role == resource.data.role  // role is immutable by user
-        && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'updatedAt', '_schemaVersion']);
+      // A user may change only their display name (AuthProvider backfills it
+      // from Auth). Everything else — role, email, deletedAt — is Admin SDK only.
+      allow update: if isAuthenticated() && isOwner(userId) && notDeleted()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'updatedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 100;
 
       allow delete: if false; // soft-delete only — set deletedAt field instead
     }
 
     // organisations/{organisationId}
-    // Team-shared: every signed-in team member works the same organisations.
+    // Team-shared: every team member (isMember) works the same organisations.
     //
     // All writes go through the Server Actions in
     // frontend/src/features/organisations/actions/, which use the Admin SDK
@@ -71,7 +80,7 @@ service cloud.firestore {
     // archive screen reads them server-side. A client list query must therefore
     // filter on where('deletedAt', '==', null) or the whole query is denied.
     match /organisations/{organisationId} {
-      allow read: if isAuthenticated() && notDeleted();
+      allow read: if isMember() && notDeleted();
       allow write: if false;
 
       // organisations/{organisationId}/activities/{activityId}
@@ -79,7 +88,7 @@ service cloud.firestore {
       // entries stay readable — the timeline shows them in its archive section
       // so they can be restored. Written only by the Server Actions, as above.
       match /activities/{activityId} {
-        allow read: if isAuthenticated();
+        allow read: if isMember();
         allow write: if false;
       }
     }

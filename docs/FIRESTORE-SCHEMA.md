@@ -29,7 +29,7 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 ## `users` collection
 
 **Path:** `/users/{userId}`
-**Access:** Owner-only (user can read/write their own document; admins can read all)
+**Access:** A user can read their own document and change only its `displayName`; admins can read all. Every other write is Admin SDK only.
 
 | Field            | Type                | Required | Description                                  |
 | ---------------- | ------------------- | -------- | -------------------------------------------- |
@@ -40,9 +40,10 @@ This enables **lazy migration** — when a document is read, check `_schemaVersi
 | `role`           | `'user' \| 'admin'` | Yes      | User role — immutable by user after creation |
 | `createdAt`      | `Timestamp`         | Yes      | When the document was created                |
 | `updatedAt`      | `Timestamp`         | Yes      | When the document was last updated           |
+| `deletedAt`      | `Timestamp \| null` | No       | Set when an admin deactivates the account    |
 | `_schemaVersion` | `1`                 | Yes      | Schema version for lazy migration            |
 
-**Creation:** Auto-created by `AuthProvider` on first sign-in via `syncUserProfile()`.
+**Creation:** Only by an admin from `/admin` (`inviteUser` / `grantAccess` in `frontend/src/actions/admin.actions.ts`, Admin SDK) or the `make-admin` script — the rules deny client creates. Having an active profile _is_ CRM access: the session route refuses everyone else, and the `isMember()` rule gates client reads of `organisations`.
 **Team list:** `listTeamMembers()` (`frontend/src/actions/users.actions.ts`) reads every profile with the Admin SDK — the rules only allow reading your own — and returns `{ uid, name }` only, for "assigned team member" pickers. The name is `displayName`, or `email` when that is empty.
 **Deletion:** Hard-delete is disabled in security rules. Use `deletedAt` field for soft-delete.
 
