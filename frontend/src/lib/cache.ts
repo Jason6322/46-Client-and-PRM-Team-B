@@ -28,28 +28,54 @@ import { revalidateTag, unstable_cache } from 'next/cache'
 export const CACHE_TAGS = {
   /** organisations/* documents, archived ones included. */
   organisations: 'organisations',
-  /** organisations/{id}/activities/* — stage changes and logged interactions. */
-  activities: 'activities',
+  /**
+   * Reads across every organisation's activities — the recent-activity feed
+   * and meetings in a date range. Any activity write expires it.
+   */
+  activityFeed: 'activity-feed',
   opportunities: 'opportunities',
   users: 'users',
 } as const
 
-export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS]
+/**
+ * One organisation's activities. Per organisation, so logging a note against
+ * one doesn't make every other organisation's timeline re-read.
+ */
+export function activitiesTag(organisationId: string) {
+  return `activities:${organisationId}` as const
+}
 
-/** Backstop for writes the app didn't make. */
-export const CACHE_SECONDS = 300
+export type CacheTag =
+  (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS] | ReturnType<typeof activitiesTag>
+
+/**
+ * Backstop for writes the app didn't make. In production those are rare (the
+ * seed script, the Firebase console), so an hour; locally, five minutes,
+ * because teammates' dev servers write to the same project and each has its
+ * own cache.
+ */
+export const CACHE_SECONDS = process.env.NODE_ENV === 'production' ? 3600 : 300
 
 /**
  * Wrap a Firestore read. `key` must be unique per function; the arguments are
  * added to the cache key automatically. Results must be JSON-serialisable
  * (millis, not Timestamps). A read that throws is not cached.
+ *
+ * `tags` may be a function of the arguments, for per-record tags such as
+ * activitiesTag(id).
  */
 export function cached<Args extends unknown[], Result>(
   read: (...args: Args) => Promise<Result>,
   key: string,
-  tags: CacheTag[]
+  tags: CacheTag[] | ((...args: Args) => CacheTag[])
 ): (...args: Args) => Promise<Result> {
-  return unstable_cache(read, [key], { tags, revalidate: CACHE_SECONDS })
+  if (Array.isArray(tags)) {
+    return unstable_cache(read, [key], { tags, revalidate: CACHE_SECONDS })
+  }
+  // The wrapper is built per call so its tags can depend on the arguments;
+  // the cache entry is still keyed by `key` plus the arguments.
+  return (...args: Args) =>
+    unstable_cache(read, [key], { tags: tags(...args), revalidate: CACHE_SECONDS })(...args)
 }
 
 /**

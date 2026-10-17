@@ -8,7 +8,7 @@ import {
   DetailFields,
   ExternalLink,
 } from '@/features/dashboard/components/DetailList'
-import { activityAcross } from '@/features/dashboard/data'
+import { latestActivity } from '@/features/dashboard/data'
 import { formatDateTimeIn } from '@/features/dashboard/format'
 import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
 import {
@@ -23,6 +23,14 @@ import { getViewerTimeZone } from '@/lib/viewerTimeZone'
 export const metadata: Metadata = {
   title: 'Recent Activity',
 }
+
+/**
+ * The page lists the latest entries rather than the whole history: one
+ * collection-group query costs about this many reads, where reading every
+ * organisation's timeline would cost every activity in the CRM. Older entries
+ * stay on each organisation's own timeline.
+ */
+const ACTIVITY_SHOWN = 100
 
 const FILTERS = ['All', ...LOGGED_ACTIVITY_TYPES, 'Stage changes'] as const
 type Filter = (typeof FILTERS)[number]
@@ -47,7 +55,7 @@ export default async function RecentActivityPage({
     getViewerTimeZone(),
   ])
   const filter = filterFrom(params.type)
-  const { activity, failed } = await activityAcross(organisationResult.data ?? [])
+  const { activity, failed } = await latestActivity(organisationResult.data ?? [], ACTIVITY_SHOWN)
 
   const shown = activity.filter(({ activity: entry }) =>
     filter === 'All'
@@ -61,7 +69,7 @@ export default async function RecentActivityPage({
     <div className="space-y-6">
       <PageHeader
         title="Recent Activity"
-        description="Every meeting, call, email, note and stage change across all organisations"
+        description={`The latest ${ACTIVITY_SHOWN} meetings, calls, emails, notes and stage changes across all organisations — older ones are on each organisation's timeline`}
         actions={<BackToDashboard />}
       />
 

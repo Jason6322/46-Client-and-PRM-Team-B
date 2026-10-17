@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SeeAllLink } from '@/features/dashboard/components/SeeAllLink'
-import { activityAcross, followUpsOf, meetingsAcross } from '@/features/dashboard/data'
+import { followUpsOf, latestActivity, meetingsAcross } from '@/features/dashboard/data'
 import { formatDateTimeIn } from '@/features/dashboard/format'
 import { listOpportunities } from '@/features/opportunities/actions/opportunities.actions'
 import { listOrganisations } from '@/features/organisations/actions/organisations.actions'
@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   title: 'Dashboard',
 }
 
-/** Activity panels only cover the most recently active organisations. */
-const ACTIVITY_ORGANISATION_LIMIT = 10
+/** How many entries the Recent Activity card shows. */
+const RECENT_ACTIVITY_COUNT = 5
 const SEVEN_DAYS_MS = 7 * 86_400_000
 
 /** The window "Meetings (next 7 days)" covers, read once per render. */
@@ -47,18 +47,14 @@ export default async function DashboardPage() {
     (opportunity) => opportunity.completedAt === null
   )
 
-  // Activity lives in a subcollection per organisation. Recent Activity only
-  // needs the most recently active few, so it reads just those in full.
-  // Upcoming meetings can belong to any organisation — a meeting booked with a
-  // quiet one is exactly the kind worth surfacing — so those are queried
-  // across all of them, filtered by date, at about one read each.
-  const recentOrganisations = organisations.slice(0, ACTIVITY_ORGANISATION_LIMIT)
+  // Both are single collection-group queries across every organisation's
+  // activities, so they cost what they return rather than one query per
+  // organisation (see listRecentActivity and listUpcomingMeetings).
   const { from, to } = nextSevenDays()
-  const [{ activity }, { meetings: upcomingMeetings }] = await Promise.all([
-    activityAcross(recentOrganisations),
+  const [{ activity: recentActivity }, { meetings: upcomingMeetings }] = await Promise.all([
+    latestActivity(organisations, RECENT_ACTIVITY_COUNT),
     meetingsAcross(organisations, from, to),
   ])
-  const recentActivity = activity.slice(0, 5)
 
   const withFollowUp = followUpsOf(organisations)
   const overdue = withFollowUp.filter((organisation) =>

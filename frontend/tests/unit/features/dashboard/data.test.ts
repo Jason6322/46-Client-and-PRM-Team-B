@@ -3,14 +3,14 @@ import type { OrganisationActivity, OrganisationListItem } from '@/features/orga
 
 vi.mock('server-only', () => ({}))
 
-const listOrganisationActivities = vi.fn()
+const listRecentActivity = vi.fn()
 const listUpcomingMeetings = vi.fn()
 vi.mock('@/features/organisations/actions/organisations.actions', () => ({
-  listOrganisationActivities: (id: string) => listOrganisationActivities(id),
+  listRecentActivity: (input: unknown) => listRecentActivity(input),
   listUpcomingMeetings: (input: unknown) => listUpcomingMeetings(input),
 }))
 
-const { activityAcross, followUpsOf, meetingsAcross } = await import('@/features/dashboard/data')
+const { followUpsOf, latestActivity, meetingsAcross } = await import('@/features/dashboard/data')
 
 function organisation(id: string, overrides: Partial<OrganisationListItem> = {}) {
   return { id, name: `Org ${id}`, nextActionDueAt: null, ...overrides } as OrganisationListItem
@@ -25,33 +25,40 @@ describe('dashboard data', () => {
     vi.clearAllMocks()
   })
 
-  it('merges activity across organisations, newest first, without archived entries', async () => {
-    listOrganisationActivities.mockImplementation(async (id: string) => ({
+  it('asks for exactly the entries it shows, and names each one', async () => {
+    listRecentActivity.mockResolvedValue({
       success: true,
-      data:
-        id === 'a'
-          ? [activity('a1', 100), activity('a2', 300, 999)]
-          : [activity('b1', 200), activity('b2', 50)],
-    }))
+      data: [
+        { organisationId: 'b', activity: activity('b1', 200) },
+        { organisationId: 'a', activity: activity('a1', 100) },
+      ],
+    })
 
-    const result = await activityAcross([organisation('a'), organisation('b')])
+    const result = await latestActivity([organisation('a'), organisation('b')], 5)
 
+    expect(listRecentActivity).toHaveBeenCalledWith({ limit: 5 })
     expect(result.failed).toBe(false)
-    expect(result.activity.map((entry) => entry.activity.id)).toEqual(['b1', 'a1', 'b2'])
+    expect(result.activity.map((entry) => entry.activity.id)).toEqual(['b1', 'a1'])
     expect(result.activity[0]).toMatchObject({ organisationId: 'b', organisationName: 'Org b' })
   })
 
-  it('reports a partial failure but keeps what did load', async () => {
-    listOrganisationActivities.mockImplementation(async (id: string) =>
-      id === 'a'
-        ? { success: true, data: [activity('a1', 100)] }
-        : { success: false, error: 'Failed to load activity' }
-    )
+  it('drops entries for organisations it was not given', async () => {
+    listRecentActivity.mockResolvedValue({
+      success: true,
+      data: [{ organisationId: 'gone', activity: activity('g1', 300) }],
+    })
 
-    const result = await activityAcross([organisation('a'), organisation('b')])
+    const result = await latestActivity([organisation('a')], 5)
 
-    expect(result.failed).toBe(true)
-    expect(result.activity).toHaveLength(1)
+    expect(result.activity).toEqual([])
+  })
+
+  it('reports a failure', async () => {
+    listRecentActivity.mockResolvedValue({ success: false, error: 'Failed to load activity' })
+
+    const result = await latestActivity([organisation('a')], 5)
+
+    expect(result).toEqual({ activity: [], failed: true })
   })
 
   it('names each meeting after its organisation', async () => {

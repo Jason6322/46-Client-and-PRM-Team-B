@@ -1,6 +1,6 @@
 import 'server-only'
 import {
-  listOrganisationActivities,
+  listRecentActivity,
   listUpcomingMeetings,
 } from '@/features/organisations/actions/organisations.actions'
 import type {
@@ -22,33 +22,24 @@ export type ActivityWithOrganisation = {
 }
 
 /**
- * Non-archived activity for the given organisations, most recently logged
- * first. Activity lives in a subcollection per organisation, so this is one
- * read per organisation (each capped at its latest 50 entries).
+ * The latest `limit` non-archived activities across all active organisations,
+ * most recently recorded first, with names from `organisations`. One
+ * collection-group query (see listRecentActivity), so the cost follows
+ * `limit`, not the number of organisations.
  */
-export async function activityAcross(
-  organisations: OrganisationListItem[]
+export async function latestActivity(
+  organisations: OrganisationListItem[],
+  limit: number
 ): Promise<{ activity: ActivityWithOrganisation[]; failed: boolean }> {
-  const results = await Promise.all(
-    organisations.map((organisation) => listOrganisationActivities(organisation.id))
-  )
-
-  const activity = results.flatMap((result, index) => {
-    const organisation = organisations[index]
-    if (!result.data || !organisation) return []
-
-    return result.data
-      .filter((entry) => entry.deletedAt === null)
-      .map((entry) => ({
-        activity: entry,
-        organisationId: organisation.id,
-        organisationName: organisation.name,
-      }))
-  })
+  const names = new Map(organisations.map((organisation) => [organisation.id, organisation.name]))
+  const result = await listRecentActivity({ limit })
 
   return {
-    activity: activity.sort((a, b) => b.activity.createdAt - a.activity.createdAt),
-    failed: results.some((result) => !result.success),
+    activity: (result.data ?? []).flatMap(({ organisationId, activity }) => {
+      const organisationName = names.get(organisationId)
+      return organisationName === undefined ? [] : [{ activity, organisationId, organisationName }]
+    }),
+    failed: !result.success,
   }
 }
 

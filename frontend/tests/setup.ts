@@ -13,10 +13,11 @@ vi.mock('@/lib/firebase/client', () => ({
 vi.mock('@/lib/cache', () => ({
   CACHE_TAGS: {
     organisations: 'organisations',
-    activities: 'activities',
+    activityFeed: 'activity-feed',
     opportunities: 'opportunities',
     users: 'users',
   },
+  activitiesTag: (organisationId: string) => `activities:${organisationId}`,
   CACHE_SECONDS: 300,
   cached: <T extends (...args: never[]) => unknown>(read: T) => read,
   invalidate: vi.fn(),
