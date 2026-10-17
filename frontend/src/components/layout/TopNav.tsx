@@ -42,9 +42,11 @@ export function TopNav() {
 
   const displayName = profile?.displayName ?? user?.email ?? 'Account'
   const initials = initialsFrom(profile?.displayName)
-  // UserProfile.role is the permission role ('user'), not a job title — the
+  // UserProfile.role is the permission role, not a job title — the
   // prototype's "UX Designer" needs a jobTitle field that the schema lacks.
-  const roleLabel = profile?.role === 'user' ? 'Team member' : (profile?.role ?? '')
+  const isAdmin = profile?.role === 'admin'
+  const roleLabel = isAdmin ? 'Admin' : profile ? 'Team member' : ''
+  const links = isAdmin ? [...navItems, { href: '/admin', label: 'Admin' }] : navItems
 
   const handleSignOut = async () => {
     await signOut()
@@ -65,7 +67,7 @@ export function TopNav() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {navItems.map(({ href, label }) => {
+          {links.map(({ href, label }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`)
             return (
               <Link

@@ -9,18 +9,19 @@ Add a new OAuth provider to the Firebase authentication system.
 
 ## Supported providers
 
-| Provider | Class | Scope examples |
-|---------|-------|----------------|
-| Google | `GoogleAuthProvider` | already included |
-| GitHub | `GithubAuthProvider` | `repo`, `user:email` |
-| Microsoft | `OAuthProvider('microsoft.com')` | `User.Read` |
-| Apple | `OAuthProvider('apple.com')` | `email`, `name` |
-| Facebook | `FacebookAuthProvider` | `email`, `public_profile` |
-| Twitter/X | `TwitterAuthProvider` | _(no scopes)_ |
+| Provider  | Class                            | Scope examples                                                             |
+| --------- | -------------------------------- | -------------------------------------------------------------------------- |
+| Google    | `GoogleAuthProvider`             | `email`, `profile` (removed from the sign-in page — access is invite-only) |
+| GitHub    | `GithubAuthProvider`             | `repo`, `user:email`                                                       |
+| Microsoft | `OAuthProvider('microsoft.com')` | `User.Read`                                                                |
+| Apple     | `OAuthProvider('apple.com')`     | `email`, `name`                                                            |
+| Facebook  | `FacebookAuthProvider`           | `email`, `public_profile`                                                  |
+| Twitter/X | `TwitterAuthProvider`            | _(no scopes)_                                                              |
 
 ## Step 1 — Prerequisites (user must do this manually)
 
 Instruct the user to:
+
 1. Open **Firebase Console → Authentication → Sign-in method**
 2. Click **Add new provider** and select the provider
 3. Copy the **Client ID** and **Client Secret** into the Firebase Console form
@@ -30,22 +31,23 @@ Instruct the user to:
 ## Step 2 — Add sign-in function to `frontend/src/lib/firebase/auth.ts`
 
 ```typescript
-import { GithubAuthProvider, signInWithPopup } from 'firebase/auth'
-import { getClientAuth } from './client'
+import { GithubAuthProvider, signInWithPopup } from "firebase/auth";
+import { getClientAuth } from "./client";
 
 export async function signInWithGithub() {
-  const provider = new GithubAuthProvider()
+  const provider = new GithubAuthProvider();
   // provider.addScope('user:email')
-  const result = await signInWithPopup(getClientAuth(), provider)
-  return result.user
+  const result = await signInWithPopup(getClientAuth(), provider);
+  return result.user;
 }
 ```
 
-Match the existing helpers in that file (`signInWithGoogle` uses the same `getClientAuth()` lazy pattern).
+Match the existing helpers in that file (`signInWithEmail` uses the same `getClientAuth()` lazy pattern).
 
 ## Step 3 — Create sign-in button component
 
 Create `frontend/src/components/auth/{Provider}SignInButton.tsx`:
+
 ```typescript
 'use client'
 
@@ -74,11 +76,11 @@ export function {Provider}SignInButton({ onSuccess, onError }: {Provider}SignInB
 }
 ```
 
-## Step 4 — Add button to login and register pages
+## Step 4 — Add button to the sign-in page
 
-Import and render `<{Provider}SignInButton>` in:
-- `frontend/src/app/(auth)/auth/signin/page.tsx`
-- `frontend/src/app/(auth)/auth/signup/page.tsx`
+Import and render `<{Provider}SignInButton>` in `frontend/src/app/(auth)/auth/signin/page.tsx`
+(there is no sign-up page — access is invite-only). Catch `Error('not-invited')` from the sign-in
+call and show the same "ask an administrator" toast the email sign-in does.
 
 ## Step 5 — Update CLAUDE.md
 

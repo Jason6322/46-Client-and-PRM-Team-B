@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Pagination } from '@/components/shared/Pagination'
+import { usePagination } from '@/hooks/usePagination'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import {
   ORGANISATION_TYPES,
@@ -110,6 +112,7 @@ export function SearchAndFilter({
     () => organisations.filter((organisation) => matchesFilters(organisation, filters)),
     [organisations, filters]
   )
+  const { pageItems, ...pagination } = usePagination(filtered, 'search')
 
   const dropdowns: { key: keyof SearchFilters; label: string; values: readonly string[] }[] = [
     { key: 'industry', label: 'Industry', values: options.industry },
@@ -203,7 +206,7 @@ export function SearchAndFilter({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((organisation) => (
+                {pageItems.map((organisation) => (
                   <tr
                     key={organisation.id}
                     onClick={() => openRow(organisation.id)}
@@ -238,12 +241,10 @@ export function SearchAndFilter({
         )}
       </Card>
 
-      {organisations.length > 0 && (
-        <p className="text-sm text-zinc-500">
-          Showing {filtered.length} of {organisations.length} organisation
-          {organisations.length === 1 ? '' : 's'}
-        </p>
-      )}
+      <Pagination
+        pagination={pagination}
+        label={filtered.length === 1 ? 'organisation' : 'organisations'}
+      />
     </div>
   )
 }

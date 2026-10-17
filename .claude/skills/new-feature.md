@@ -10,6 +10,7 @@ Scaffold a complete feature module under `src/features/` in the `frontend/` pack
 ## Step 1 — Gather requirements
 
 Ask the user:
+
 1. **Feature name** (e.g., `invoices`, `team-members`, `projects`) — use kebab-case for the folder, PascalCase for types/components
 2. **Data model fields** — what fields does the primary document have?
 3. **Access pattern** — owner-only, all authenticated users, or public?
@@ -20,6 +21,7 @@ Ask the user:
 Given feature name `{feature}` and model name `{Model}`:
 
 ### `frontend/src/features/{feature}/types.ts`
+
 ```typescript
 import type { Timestamp } from 'firebase/firestore'
 
@@ -37,26 +39,37 @@ export type Update{Model}Input = Partial<Omit<{Model}, 'id' | 'uid' | 'createdAt
 ```
 
 ### `frontend/src/features/{feature}/hooks/use{Feature}.ts`
+
 - Import typed collection from `@/lib/firebase/firestore`
 - Return `{ data, loading, error }` shape
 - Use `onSnapshot` for realtime; `getDocs`/`getDoc` for one-time
 - Clean up subscription in `useEffect` return
 
 ### `frontend/src/features/{feature}/actions/{feature}.actions.ts`
+
 ```typescript
 'use server'
 import { adminDb } from '@/lib/firebase/admin'
 import { requireAuth } from '@/actions/auth.actions'
+import { CACHE_TAGS, cached, invalidate } from '@/lib/cache'
 import { revalidatePath } from 'next/cache'
 import type { Create{Model}Input, Update{Model}Input } from '../types'
 import type { ActionResult } from '@/types'
 
+// One cached read of the collection serves every list and lookup.
+// requireAuth() stays outside it — cached functions must not touch cookies.
+const all{Model}s = cached(async () => { ... }, '{feature}-all', [CACHE_TAGS.{feature}])
+
+export async function list{Model}s(): Promise<ActionResult<{Model}[]>> { ... } // await requireAuth(); filter all{Model}s() in memory
 export async function create{Model}(input: Create{Model}Input): Promise<ActionResult<string>> { ... }
 export async function update{Model}(id: string, input: Update{Model}Input): Promise<ActionResult> { ... }
-export async function delete{Model}(id: string): Promise<ActionResult> { ... }
+export async function delete{Model}(id: string): Promise<ActionResult> { ... } // soft delete: set deletedAt
 ```
 
+Every write calls `invalidate(CACHE_TAGS.{feature})` next to its `revalidatePath`. Add the `{feature}` tag to `CACHE_TAGS` in `frontend/src/lib/cache.ts`.
+
 ### `frontend/src/features/{feature}/components/{Model}List.tsx`
+
 Basic list/table component using raw Tailwind classes (not shadcn, to keep it simple).
 
 ## Step 3 — Cross-cutting updates
@@ -64,6 +77,7 @@ Basic list/table component using raw Tailwind classes (not shadcn, to keep it si
 After creating the feature files, also update:
 
 1. **`frontend/src/lib/firebase/firestore.ts`** — add typed collection export (function-style, matching the existing `getUsersCollection()` pattern):
+
    ```typescript
    export function get{Model}sCollection() {
      return typedCollection<{Model}>('{collection_name}')
@@ -73,14 +87,16 @@ After creating the feature files, also update:
 
 2. **`frontend/src/types/firestore.ts`** — add the type (or re-export from feature)
 
-3. **`firebase/firestore.rules`** — add security rules for the new collection
+3. **`firebase/firestore.rules`** — add security rules for the new collection (gate reads on `isMember()`, not `isAuthenticated()`; deny client writes when they go through Server Actions)
 
 4. **`docs/FIRESTORE-SCHEMA.md`** — document the new schema
 
 ## Checklist
+
 - [ ] Types defined and exported
 - [ ] Typed collection added to `firestore.ts`
 - [ ] Security rules added to `firestore.rules`
 - [ ] Hook returns `{ data, loading, error }`
 - [ ] Server Actions use `requireAuth()` before any DB operation
+- [ ] Reads go through `cached()`; every write calls `invalidate()`
 - [ ] Schema documented in `FIRESTORE-SCHEMA.md`

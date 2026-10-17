@@ -1,8 +1,9 @@
 'use server'
 
-import { adminAuth } from '@/lib/firebase/admin'
+import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { cache } from 'react'
 import type { ActionResult } from '@/types'
 
 const SESSION_COOKIE_NAME = '__session'
@@ -17,22 +18,51 @@ export async function getServerSession() {
 
   if (!sessionCookie) return null
 
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true)
-    return decoded
-  } catch {
-    return null
-  }
+  return verifySessionOnce(sessionCookie)
 }
 
 /**
+ * Every Server Action calls requireAuth(), and a page calls several, so
+ * verification is memoised for the request (React cache). checkRevoked makes
+ * each verification a round trip to Firebase Auth; the dashboard made about a
+ * dozen per render. Scoped to one request, so revocation still applies to the
+ * next one.
+ */
+const verifySessionOnce = cache(async (sessionCookie: string) => {
+  try {
+    return await adminAuth.verifySessionCookie(sessionCookie, true)
+  } catch {
+    return null
+  }
+})
+
+/** The caller's profile, read at most once per request (React cache). */
+const profileOnce = cache((uid: string) => adminDb.collection('users').doc(uid).get())
+
+/**
  * Require authentication in a Server Action or Server Component.
- * Redirects to /login if not authenticated.
+ * Redirects to the sign-in page if not authenticated. ?expired tells the proxy
+ * to delete a cookie that is present but no longer valid — it can't be deleted
+ * from here during a render, and keeping it would make the proxy send the
+ * sign-in page straight back to the dashboard.
  */
 export async function requireAuth() {
   const session = await getServerSession()
   if (!session) {
-    redirect('/auth/signin')
+    redirect('/auth/signin?expired=1')
+  }
+  return session
+}
+
+/**
+ * Require an admin (users/{uid}.role == 'admin'). Anyone else gets a 404, so
+ * the admin screens don't advertise themselves.
+ */
+export async function requireAdmin() {
+  const session = await requireAuth()
+  const profile = await profileOnce(session.uid)
+  if (profile.get('role') !== 'admin' || profile.get('deletedAt') != null) {
+    notFound()
   }
   return session
 }
