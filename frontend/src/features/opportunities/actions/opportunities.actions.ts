@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { requireAuth } from '@/actions/auth.actions'
+import { CACHE_TAGS, cached, invalidate } from '@/lib/cache'
 import { adminDb } from '@/lib/firebase/admin'
 import { readTeamMembers, toTeamMember } from '@/lib/teamMembers'
 import { createOpportunitySchema, updateOpportunitySchema } from '@/lib/validations/opportunity'
@@ -52,19 +53,28 @@ function serialise(id: string, data: FirebaseFirestore.DocumentData): Opportunit
   }
 }
 
+/**
+ * Every non-archived opportunity, most recently updated first. One cached read
+ * of the collection serves the list, per-organisation lists and single
+ * lookups (see lib/cache.ts).
+ */
+const activeOpportunities = cached(
+  async () => {
+    const snapshot = await adminDb.collection(COLLECTION).orderBy('updatedAt', 'desc').get()
+    return snapshot.docs
+      .map((doc) => serialise(doc.id, doc.data()))
+      .filter((opportunity) => opportunity.deletedAt === null)
+  },
+  'opportunities-active',
+  [CACHE_TAGS.opportunities]
+)
+
 /** Every open opportunity, most recently updated first. */
 export async function listOpportunities(): Promise<ActionResult<OpportunityListItem[]>> {
   await requireAuth()
 
   try {
-    const snapshot = await adminDb.collection(COLLECTION).orderBy('updatedAt', 'desc').get()
-
-    return {
-      success: true,
-      data: snapshot.docs
-        .map((doc) => serialise(doc.id, doc.data()))
-        .filter((opportunity) => opportunity.deletedAt === null),
-    }
+    return { success: true, data: await activeOpportunities() }
   } catch {
     return { success: false, error: 'Failed to load opportunities' }
   }
@@ -93,14 +103,10 @@ export async function getOpportunity(id: string): Promise<ActionResult<Opportuni
   await requireAuth()
 
   try {
-    const snapshot = await adminDb.collection(COLLECTION).doc(id).get()
-    const data = snapshot.data()
+    const opportunity = (await activeOpportunities()).find((entry) => entry.id === id)
+    if (!opportunity) return { success: false, error: 'Opportunity not found' }
 
-    if (!snapshot.exists || !data || data.deletedAt !== null) {
-      return { success: false, error: 'Opportunity not found' }
-    }
-
-    return { success: true, data: serialise(snapshot.id, data) }
+    return { success: true, data: opportunity }
   } catch {
     return { success: false, error: 'Failed to load opportunity' }
   }
@@ -148,6 +154,7 @@ export async function createOpportunity(input: unknown): Promise<ActionResult<{ 
       _schemaVersion: 1,
     })
 
+    invalidate(CACHE_TAGS.opportunities)
     revalidatePath('/opportunities')
     revalidatePath('/dashboard')
     return { success: true, data: { id: ref.id } }
@@ -177,6 +184,7 @@ export async function updateOpportunity(id: string, input: unknown): Promise<Act
 
     await adminDb.collection(COLLECTION).doc(id).update(update)
 
+    invalidate(CACHE_TAGS.opportunities)
     revalidatePath('/opportunities')
     revalidatePath('/dashboard')
     return { success: true }
@@ -198,6 +206,7 @@ export async function setOpportunityComplete(id: string, complete: boolean): Pro
         updatedAt: FieldValue.serverTimestamp(),
       })
 
+    invalidate(CACHE_TAGS.opportunities)
     revalidatePath('/opportunities')
     revalidatePath('/dashboard')
     return { success: true }
@@ -216,6 +225,7 @@ export async function archiveOpportunity(id: string): Promise<ActionResult> {
       updatedAt: FieldValue.serverTimestamp(),
     })
 
+    invalidate(CACHE_TAGS.opportunities)
     revalidatePath('/opportunities')
     revalidatePath('/dashboard')
     return { success: true }

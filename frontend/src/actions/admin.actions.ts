@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { FieldValue, type Timestamp } from 'firebase-admin/firestore'
 import type { UserRecord } from 'firebase-admin/auth'
 import { revalidatePath } from 'next/cache'
+import { CACHE_TAGS, invalidate } from '@/lib/cache'
 import { z } from 'zod'
 import { requireAdmin } from '@/actions/auth.actions'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
@@ -174,6 +175,7 @@ export async function inviteUser(input: InviteUserInput): Promise<ActionResult<{
       )
     )
 
+    invalidate(CACHE_TAGS.users)
     revalidatePath('/admin')
     return { success: true, data: { email } }
   } catch {
@@ -196,6 +198,7 @@ export async function grantAccess(uid: string): Promise<ActionResult> {
     }
     await claimIfUnverified(account)
     await profileRef.set(profileFrom(account, 'user'))
+    invalidate(CACHE_TAGS.users)
     revalidatePath('/admin')
     return { success: true }
   } catch {
@@ -226,6 +229,7 @@ export async function setUserActive(uid: string, active: boolean): Promise<Actio
         deletedAt: active ? null : FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       })
+    invalidate(CACHE_TAGS.users)
     revalidatePath('/admin')
     return { success: true }
   } catch {
@@ -268,6 +272,7 @@ export async function removeUser(uid: string): Promise<ActionResult<{ deletedAcc
     }
     await adminDb.collection('users').doc(parsed.data).delete()
 
+    invalidate(CACHE_TAGS.users)
     revalidatePath('/admin')
     return { success: true, data: { deletedAccount: neverSignedIn } }
   } catch {
@@ -290,6 +295,7 @@ export async function setUserRole(uid: string, role: UserRole): Promise<ActionRe
       .collection('users')
       .doc(parsedId.data)
       .update({ role: parsedRole.data, updatedAt: FieldValue.serverTimestamp() })
+    invalidate(CACHE_TAGS.users)
     revalidatePath('/admin')
     return { success: true }
   } catch {
