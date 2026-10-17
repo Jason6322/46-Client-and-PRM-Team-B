@@ -64,8 +64,14 @@ function isUserNotFound(error: unknown) {
  * inbox can use it. Anyone can create an unverified account for someone else's
  * address through the public API; replacing the password and revoking its
  * sessions locks that person out, and the setup email lets the real owner in.
+ *
+ * Also re-enables the account: one that was deactivated and then removed is
+ * still disabled in Firebase Auth, and couldn't sign in even with a profile.
  */
-async function claimIfUnverified(account: UserRecord) {
+async function prepareForAccess(account: UserRecord) {
+  if (account.disabled) {
+    await adminAuth.updateUser(account.uid, { disabled: false })
+  }
   if (account.emailVerified) return
   await adminAuth.updateUser(account.uid, {
     password: randomBytes(32).toString('base64url'),
@@ -164,7 +170,7 @@ export async function inviteUser(input: InviteUserInput): Promise<ActionResult<{
       }
     }
 
-    await claimIfUnverified(account)
+    await prepareForAccess(account)
     if (!account.displayName) {
       await adminAuth.updateUser(account.uid, { displayName })
     }
@@ -196,7 +202,7 @@ export async function grantAccess(uid: string): Promise<ActionResult> {
     if ((await profileRef.get()).exists) {
       return { success: false, error: 'That person already has a profile' }
     }
-    await claimIfUnverified(account)
+    await prepareForAccess(account)
     await profileRef.set(profileFrom(account, 'user'))
     invalidate(CACHE_TAGS.users)
     revalidatePath('/admin')

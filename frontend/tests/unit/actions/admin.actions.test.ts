@@ -4,17 +4,24 @@ const profileDelete = vi.fn()
 const getUser = vi.fn()
 const deleteUser = vi.fn()
 const revokeRefreshTokens = vi.fn()
+const updateUser = vi.fn()
+const profileGet = vi.fn()
+const profileSet = vi.fn()
 
 vi.mock('@/actions/auth.actions', () => ({
   requireAdmin: vi.fn().mockResolvedValue({ uid: 'admin-1' }),
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/firebase/admin', () => ({
-  adminAuth: { getUser, deleteUser, revokeRefreshTokens },
-  adminDb: { collection: () => ({ doc: () => ({ delete: profileDelete }) }) },
+  adminAuth: { getUser, deleteUser, revokeRefreshTokens, updateUser },
+  adminDb: {
+    collection: () => ({
+      doc: () => ({ delete: profileDelete, get: profileGet, set: profileSet }),
+    }),
+  },
 }))
 
-const { removeUser } = await import('@/actions/admin.actions')
+const { grantAccess, removeUser } = await import('@/actions/admin.actions')
 
 function account(lastSignInTime: string | undefined) {
   return { uid: 'u2', metadata: { lastSignInTime } }
@@ -70,5 +77,30 @@ describe('removeUser — undoing a wrong invite', () => {
 
     expect(result).toEqual({ success: false, error: 'Failed to remove user' })
     expect(profileDelete).not.toHaveBeenCalled()
+  })
+})
+
+describe('grantAccess', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    profileGet.mockResolvedValue({ exists: false })
+  })
+
+  it('re-enables an account that was deactivated and then removed', async () => {
+    getUser.mockResolvedValue({ uid: 'u2', email: 'a@b.co', emailVerified: true, disabled: true })
+
+    const result = await grantAccess('u2')
+
+    expect(result).toEqual({ success: true })
+    expect(updateUser).toHaveBeenCalledWith('u2', { disabled: false })
+    expect(profileSet).toHaveBeenCalled()
+  })
+
+  it('leaves an enabled, verified account alone', async () => {
+    getUser.mockResolvedValue({ uid: 'u2', email: 'a@b.co', emailVerified: true, disabled: false })
+
+    await grantAccess('u2')
+
+    expect(updateUser).not.toHaveBeenCalled()
   })
 })
