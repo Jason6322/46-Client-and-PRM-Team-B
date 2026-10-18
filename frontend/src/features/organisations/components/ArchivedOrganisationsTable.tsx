@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card } from '@/components/shared/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Pagination } from '@/components/shared/Pagination'
+import { usePagination } from '@/hooks/usePagination'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import {
   deleteOrganisationPermanently,
@@ -180,6 +182,8 @@ export function ArchivedOrganisationsTable({
 }: {
   organisations: OrganisationListItem[]
 }) {
+  const { pageItems, ...pagination } = usePagination(organisations, 'archived-organisations')
+
   if (organisations.length === 0) {
     return (
       <Card>
@@ -210,7 +214,7 @@ export function ArchivedOrganisationsTable({
               </tr>
             </thead>
             <tbody>
-              {organisations.map((organisation) => (
+              {pageItems.map((organisation) => (
                 <tr
                   key={organisation.id}
                   className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50"
@@ -231,6 +235,11 @@ export function ArchivedOrganisationsTable({
           </table>
         </div>
       </Card>
+
+      <Pagination
+        pagination={pagination}
+        label={organisations.length === 1 ? 'archived organisation' : 'archived organisations'}
+      />
 
       <p className="text-sm text-zinc-500">
         Archived organisations are kept until you delete them. Deleting also removes their activity

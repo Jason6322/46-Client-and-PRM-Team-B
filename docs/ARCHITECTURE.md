@@ -49,12 +49,19 @@ sequenceDiagram
     participant FA as Firebase Auth
     participant N as Next.js server
     participant A as Route Handler (/api/*)
+    participant F as Firestore
 
-    B->>FA: signInWithEmail / signInWithGoogle (client SDK)
+    B->>FA: signInWithEmail (client SDK)
     FA-->>B: ID token (auto-refreshes hourly)
     B->>N: POST /api/auth/session (ID token)
-    N->>FA: createSessionCookie()
-    N-->>B: HttpOnly __session cookie (14 days)
+    N->>FA: verifyIdToken(token, checkRevoked)
+    N->>F: users/{uid} — active profile? (invite gate)
+    alt no profile, or deactivated
+        N-->>B: 403 not-invited (browser signs out)
+    else invited
+        N->>FA: createSessionCookie()
+        N-->>B: HttpOnly __session cookie (14 days) + { displayName, role }
+    end
 
     Note over B,N: Page loads from now on
     B->>N: GET /dashboard (cookie sent automatically)
@@ -67,6 +74,8 @@ sequenceDiagram
     A->>FA: verifyIdToken()
     A-->>B: JSON response
 ```
+
+**Invite-only:** there is no sign-up page. An admin adds people at `/admin` (or the first admin with `pnpm --filter frontend make-admin`), which creates their `users/{uid}` profile; the session route refuses a cookie to anyone without an active one. A cookie the server later rejects (revoked, deactivated) is cleared by the proxy when `requireAuth()` redirects with `?expired`.
 
 **Critical:** the cookie check in `proxy.ts` is optimistic (presence only) — it exists to redirect signed-out users, not to enforce security. Cryptographic verification always happens server-side near the data: `requireAuth()` in Server Actions/Components, `verifyBearer()` in Route Handlers.
 

@@ -169,13 +169,18 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Verify it actually works
 
-1. Click **Sign up**, create an account with any email/password.
-2. You should land on `/dashboard`.
-3. Back in the Firebase console: **Authentication → Users** should show your new user.
+Sign-up is invite-only, so the first account has to be made an admin from the terminal.
+
+1. Run `pnpm --filter frontend make-admin -- you@example.com` with your email. It creates the
+   account with no password.
+2. On the sign-in page click **Forgot password?**, enter that email, and set a password from the
+   link you're sent.
+3. Sign in. You should land on `/dashboard`, with an **Admin** link in the top nav.
+4. Back in the Firebase console: **Authentication → Users** should show your new user.
    **Firestore Database → Data** should show a `users` collection with one document.
 
-If both of those are true, the whole stack is working: sign-up → Firebase Auth → session cookie →
-Firestore write → protected page. You're ready for
+If both of those are true, the whole stack is working: Firebase Auth → session cookie →
+Firestore profile → protected page. Add everyone else from `/admin`. You're ready for
 **[Part 2 — build a feature](COPY-PASTE-FEATURE.md)**.
 
 ---

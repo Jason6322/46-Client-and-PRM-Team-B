@@ -25,12 +25,6 @@ export default function LandingPage() {
         >
           Sign in
         </Link>
-        <Link
-          href="/auth/signup"
-          className="inline-flex items-center justify-center rounded-md border border-zinc-200 bg-white px-6 py-2.5 text-sm font-medium shadow-sm transition-colors hover:bg-zinc-50"
-        >
-          Create account
-        </Link>
       </div>
     </main>
   )

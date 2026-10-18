@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { z } from 'zod'
 import { requireAuth } from '@/actions/auth.actions'
+import { CACHE_TAGS, activitiesTag, cached, invalidate } from '@/lib/cache'
 import { idSchema } from '@/lib/validations/common'
 import { adminDb } from '@/lib/firebase/admin'
 import {
@@ -102,13 +103,29 @@ async function recordStageChange(
   })
 }
 
-/** Stage changes and, in time, calls and meetings — newest first. */
-export async function listOrganisationActivities(
-  organisationId: string
-): Promise<ActionResult<OrganisationActivity[]>> {
-  await requireAuth()
+/**
+ * Every organisation, archived included, most recently active first. One
+ * cached read of the collection serves the list, the archive, single lookups
+ * and the calendar's names (see lib/cache.ts).
+ */
+const allOrganisations = cached(
+  async () => {
+    const snapshot = await adminDb.collection(COLLECTION).orderBy('lastActivityAt', 'desc').get()
+    return snapshot.docs.map((doc) => serialise(doc.id, doc.data()))
+  },
+  'organisations-all',
+  [CACHE_TAGS.organisations]
+)
 
-  try {
+async function readOrganisation(id: string) {
+  const snapshot = await adminDb.collection(COLLECTION).doc(id).get()
+  const data = snapshot.data()
+  return data ? serialise(snapshot.id, data) : null
+}
+
+/** An organisation's latest 50 activities, newest first. */
+const organisationActivities = cached(
+  async (organisationId: string) => {
     const snapshot = await adminDb
       .collection(COLLECTION)
       .doc(organisationId)
@@ -116,8 +133,159 @@ export async function listOrganisationActivities(
       .orderBy('createdAt', 'desc')
       .limit(50)
       .get()
+    return snapshot.docs.map(toActivity)
+  },
+  'organisation-activities',
+  (organisationId) => [activitiesTag(organisationId)]
+)
 
-    return { success: true, data: snapshot.docs.map(toActivity) }
+type ActivityWithOrganisationId = { organisationId: string; activity: OrganisationActivity }
+
+/**
+ * An activity from a collection-group query, with the organisation it belongs
+ * to (its parent document). Anything not under organisations/ is skipped.
+ */
+function withOrganisationId(doc: FirebaseFirestore.QueryDocumentSnapshot) {
+  const organisation = doc.ref.parent.parent
+  if (!organisation || organisation.parent.id !== COLLECTION) return []
+  return [{ organisationId: organisation.id, activity: toActivity(doc) }]
+}
+
+/**
+ * Collection-group queries need their single-field index enabled for the
+ * collection-group scope (firebase/firestore.indexes.json). Until it is
+ * deployed Firestore answers FAILED_PRECONDITION, and callers fall back to one
+ * query per organisation — the same data, at the old cost.
+ */
+function isMissingIndex(error: unknown) {
+  const missing =
+    typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 9
+  // The fallback costs one query per organisation — a few hundred reads per
+  // dashboard load — so make it visible in the server log rather than silent.
+  if (missing) {
+    console.warn(
+      'Collection-group index missing; reading each organisation instead. Deploy it with `firebase deploy --only firestore:indexes`.'
+    )
+  }
+  return missing
+}
+
+/** A Firestore Timestamp as plain numbers, so it can be part of a cache key. */
+type FeedCursor = [seconds: number, nanoseconds: number]
+
+/**
+ * One page of the most recently recorded activity across every organisation,
+ * archived entries included, and the cursor for the page after it (null when
+ * there is none).
+ */
+const recentActivityPage = cached(
+  async (
+    size: number,
+    after: FeedCursor | null
+  ): Promise<{ entries: ActivityWithOrganisationId[]; next: FeedCursor | null }> => {
+    let query = adminDb.collectionGroup(ACTIVITIES).orderBy('createdAt', 'desc').limit(size)
+    if (after) query = query.startAfter(new Timestamp(after[0], after[1]))
+    const snapshot = await query.get()
+    const lastCreatedAt: unknown = snapshot.docs.at(-1)?.get('createdAt')
+    return {
+      entries: snapshot.docs.flatMap(withOrganisationId),
+      next:
+        snapshot.size === size && lastCreatedAt instanceof Timestamp
+          ? [lastCreatedAt.seconds, lastCreatedAt.nanoseconds]
+          : null,
+    }
+  },
+  'recent-activity-page',
+  [CACHE_TAGS.activityFeed]
+)
+
+/** Bounds the reads when most recent entries are archived: at most this many pages. */
+const RECENT_ACTIVITY_PAGES = 5
+
+/**
+ * The newest activities across organisations, keeping only what `keep`
+ * accepts, until there are `limit` of them or the pages run out.
+ */
+async function recentActivityFeed(
+  limit: number,
+  keep: (entry: ActivityWithOrganisationId) => boolean
+) {
+  const kept: ActivityWithOrganisationId[] = []
+  let after: FeedCursor | null = null
+  for (let page = 0; page < RECENT_ACTIVITY_PAGES && kept.length < limit; page++) {
+    const { entries, next }: Awaited<ReturnType<typeof recentActivityPage>> =
+      await recentActivityPage(limit * 2, after)
+    kept.push(...entries.filter(keep))
+    if (!next) break
+    after = next
+  }
+  return kept.slice(0, limit)
+}
+
+const RECENT_ACTIVITY_MAX = 100
+const recentActivitySchema = z.object({
+  limit: z.number().int().min(1).max(RECENT_ACTIVITY_MAX),
+})
+
+/**
+ * The latest `limit` activities across all active organisations, newest
+ * first, leaving out archived entries and archived organisations — for the
+ * dashboard's Recent Activity and its "See all" page.
+ *
+ * Collection-group queries, so it costs about `limit` reads (twice that, to
+ * leave room for the archived entries filtered out here) however many
+ * organisations there are. When most of a page is filtered out it reads
+ * another, up to RECENT_ACTIVITY_PAGES. Reading every organisation's timeline
+ * instead costs every activity in the CRM.
+ */
+export async function listRecentActivity(
+  input: z.input<typeof recentActivitySchema>
+): Promise<ActionResult<ActivityWithOrganisationId[]>> {
+  await requireAuth()
+
+  const parsed = recentActivitySchema.safeParse(input)
+  if (!parsed.success) return { success: false, error: 'Invalid activity limit' }
+  const { limit } = parsed.data
+
+  try {
+    const active = (await allOrganisations()).filter(
+      (organisation) => organisation.deletedAt === null
+    )
+    const activeIds = new Set(active.map((organisation) => organisation.id))
+    const isShown = ({ organisationId, activity }: ActivityWithOrganisationId) =>
+      activeIds.has(organisationId) && activity.deletedAt === null
+
+    const feed = await recentActivityFeed(limit, isShown).catch(async (error: unknown) => {
+      if (!isMissingIndex(error)) throw error
+      const timelines = await Promise.all(
+        active.map(async (organisation) =>
+          (await organisationActivities(organisation.id)).map((activity) => ({
+            organisationId: organisation.id,
+            activity,
+          }))
+        )
+      )
+      return timelines
+        .flat()
+        .filter(isShown)
+        .sort((a, b) => b.activity.createdAt - a.activity.createdAt)
+        .slice(0, limit)
+    })
+
+    return { success: true, data: feed }
+  } catch {
+    return { success: false, error: 'Failed to load activity' }
+  }
+}
+
+/** Stage changes and, in time, calls and meetings — newest first. */
+export async function listOrganisationActivities(
+  organisationId: string
+): Promise<ActionResult<OrganisationActivity[]>> {
+  await requireAuth()
+
+  try {
+    return { success: true, data: await organisationActivities(organisationId) }
   } catch {
     return { success: false, error: 'Failed to load activity' }
   }
@@ -151,11 +319,16 @@ function toActivity(doc: FirebaseFirestore.QueryDocumentSnapshot): OrganisationA
   }
 }
 
-const upcomingMeetingsSchema = z.object({
-  organisationIds: z.array(idSchema).max(500),
-  from: z.number().int(),
-  to: z.number().int(),
-})
+/** The dashboard's 90-day "See all", plus slack. Bounds the reads of one call. */
+const MAX_UPCOMING_RANGE = 92 * 24 * 60 * 60 * 1000
+
+const upcomingMeetingsSchema = z
+  .object({
+    organisationIds: z.array(idSchema).max(500),
+    from: z.number().int(),
+    to: z.number().int(),
+  })
+  .refine(({ from, to }) => to >= from && to - from <= MAX_UPCOMING_RANGE)
 
 /**
  * Meetings between `from` and `to` (epoch millis) across the given
@@ -205,11 +378,10 @@ export async function listCalendarMeetings(
   try {
     // Filtered in memory, like listOrganisations — documents written before
     // deletedAt existed lack the field and would not match a `== null` query.
-    const snapshot = await adminDb.collection(COLLECTION).get()
     const names = new Map(
-      snapshot.docs
-        .filter((doc) => !(doc.data().deletedAt instanceof Timestamp))
-        .map((doc) => [doc.id, String(doc.data().name ?? 'Unnamed organisation')])
+      (await allOrganisations())
+        .filter((organisation) => organisation.deletedAt === null)
+        .map((organisation) => [organisation.id, organisation.name || 'Unnamed organisation'])
     )
     const meetings = await meetingsBetween([...names.keys()], from, to)
 
@@ -229,12 +401,61 @@ export async function listCalendarMeetings(
  * Meetings between `from` and `to` (epoch millis) across the given
  * organisations, soonest first.
  *
- * One query per organisation, filtered on occurredAt alone so the automatic
- * single-field index serves it; type and archived are filtered here, which
- * avoids a composite index. Firestore bills a query that matches nothing as
- * one read, so this costs about one read per organisation.
+ * One collection-group query over every organisation's activities, filtered
+ * on occurredAt alone; type, archived and organisation are filtered here,
+ * which avoids a composite index. It costs one read per activity in the range
+ * (at least one), however many organisations there are. Until the index is
+ * deployed it falls back to one query per organisation (see isMissingIndex).
+ *
+ * Callers pass `from = Date.now()`, which would make every call a new cache
+ * key. The query runs over the window widened to MEETING_WINDOW_MS boundaries
+ * (cached), and the exact range is cut from that in memory.
  */
 async function meetingsBetween(organisationIds: string[], from: number, to: number) {
+  const start = Math.floor(from / MEETING_WINDOW_MS) * MEETING_WINDOW_MS
+  const end = Math.ceil(to / MEETING_WINDOW_MS) * MEETING_WINDOW_MS
+  const wanted = new Set(organisationIds)
+
+  const meetings = await meetingsInWindow(start, end).catch((error: unknown) => {
+    if (!isMissingIndex(error)) throw error
+    return meetingsInWindowPerOrganisation(organisationIds, start, end)
+  })
+
+  return meetings.filter(({ organisationId, activity }) => {
+    const at = activity.occurredAt ?? 0
+    return wanted.has(organisationId) && at >= from && at <= to
+  })
+}
+
+const MEETING_WINDOW_MS = 5 * 60 * 1000
+
+function liveMeetingsSoonestFirst(entries: ActivityWithOrganisationId[]) {
+  return entries
+    .filter(({ activity }) => activity.type === 'Meeting' && activity.deletedAt === null)
+    .sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0))
+}
+
+const meetingsInWindow = cached(
+  async (from: number, to: number) => {
+    const snapshot = await adminDb
+      .collectionGroup(ACTIVITIES)
+      .where('occurredAt', '>=', Timestamp.fromMillis(from))
+      .where('occurredAt', '<=', Timestamp.fromMillis(to))
+      .get()
+    return liveMeetingsSoonestFirst(snapshot.docs.flatMap(withOrganisationId))
+  },
+  'meetings-in-window',
+  [CACHE_TAGS.activityFeed]
+)
+
+/** The fallback: one query per organisation, about one read each. */
+const meetingsInWindowPerOrganisation = cached(
+  queryMeetingsPerOrganisation,
+  'meetings-in-window-per-organisation',
+  [CACHE_TAGS.activityFeed]
+)
+
+async function queryMeetingsPerOrganisation(organisationIds: string[], from: number, to: number) {
   const snapshots = await Promise.all(
     organisationIds.map((organisationId) =>
       adminDb
@@ -247,14 +468,14 @@ async function meetingsBetween(organisationIds: string[], from: number, to: numb
     )
   )
 
-  const meetings = snapshots.flatMap((snapshot, index) =>
-    snapshot.docs
-      .map(toActivity)
-      .filter((activity) => activity.type === 'Meeting' && activity.deletedAt === null)
-      .map((activity) => ({ organisationId: organisationIds[index]!, activity }))
+  return liveMeetingsSoonestFirst(
+    snapshots.flatMap((snapshot, index) =>
+      snapshot.docs.map((doc) => ({
+        organisationId: organisationIds[index]!,
+        activity: toActivity(doc),
+      }))
+    )
   )
-
-  return meetings.sort((a, b) => (a.activity.occurredAt ?? 0) - (b.activity.occurredAt ?? 0))
 }
 
 /**
@@ -296,6 +517,7 @@ export async function logActivity(
       lastActivityAt: FieldValue.serverTimestamp(),
     })
 
+    invalidate(CACHE_TAGS.organisations, CACHE_TAGS.activityFeed, activitiesTag(organisationId))
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${organisationId}`)
     revalidatePath('/meetings')
@@ -341,6 +563,7 @@ export async function setActivityArchived(
 
     await ref.update({ deletedAt: archived ? FieldValue.serverTimestamp() : null })
 
+    invalidate(CACHE_TAGS.activityFeed, activitiesTag(organisationId))
     revalidatePath(`/organisations/${organisationId}`)
     revalidatePath(`/meetings/${organisationId}`)
     return { success: true }
@@ -378,6 +601,8 @@ export async function createOrganisation(input: unknown): Promise<ActionResult<{
       _schemaVersion: 1,
     })
 
+    // A new organisation has no activity yet, so the activity caches stand.
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     return { success: true, data: { id: ref.id } }
   } catch {
@@ -389,15 +614,23 @@ export async function createOrganisation(input: unknown): Promise<ActionResult<{
 export async function getOrganisation(id: string): Promise<ActionResult<OrganisationListItem>> {
   await requireAuth()
 
-  try {
-    const snapshot = await adminDb.collection(COLLECTION).doc(id).get()
-    const data = snapshot.data()
+  const parsed = idSchema.safeParse(id)
+  if (!parsed.success) return { success: false, error: 'Organisation not found' }
 
-    if (!snapshot.exists || !data || data.deletedAt !== null) {
+  try {
+    // Served from the cached collection rather than a read of its own. The
+    // list is ordered by lastActivityAt, which leaves out documents without
+    // that field (e.g. ones added in the Firebase console), so a miss falls
+    // back to reading the document.
+    const organisation =
+      (await allOrganisations()).find((entry) => entry.id === parsed.data) ??
+      (await readOrganisation(parsed.data))
+
+    if (!organisation || organisation.deletedAt !== null) {
       return { success: false, error: 'Organisation not found' }
     }
 
-    return { success: true, data: serialise(snapshot.id, data) }
+    return { success: true, data: organisation }
   } catch {
     return { success: false, error: 'Failed to load organisation' }
   }
@@ -416,13 +649,9 @@ export async function listOrganisations(): Promise<ActionResult<OrganisationList
   await requireAuth()
 
   try {
-    const snapshot = await adminDb.collection(COLLECTION).orderBy('lastActivityAt', 'desc').get()
-
     return {
       success: true,
-      data: snapshot.docs
-        .map((doc) => serialise(doc.id, doc.data()))
-        .filter((organisation) => organisation.deletedAt === null),
+      data: (await allOrganisations()).filter((organisation) => organisation.deletedAt === null),
     }
   } catch {
     return { success: false, error: 'Failed to load organisations' }
@@ -439,12 +668,9 @@ export async function listArchivedOrganisations(): Promise<ActionResult<Organisa
   await requireAuth()
 
   try {
-    const snapshot = await adminDb.collection(COLLECTION).orderBy('lastActivityAt', 'desc').get()
-
     return {
       success: true,
-      data: snapshot.docs
-        .map((doc) => serialise(doc.id, doc.data()))
+      data: (await allOrganisations())
         .filter((organisation) => organisation.deletedAt !== null)
         .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0)),
     }
@@ -478,6 +704,10 @@ export async function updateOrganisation(id: string, input: unknown): Promise<Ac
         lastActivityAt: FieldValue.serverTimestamp(),
       })
 
+    // Opportunities carry a copy of the organisation's name that this doesn't
+    // touch (it catches up when the opportunity is next saved), so their
+    // cache stands.
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)
     return { success: true }
@@ -527,6 +757,7 @@ export async function changePipelineStage(id: string, stage: unknown): Promise<A
       })
     }
 
+    invalidate(CACHE_TAGS.organisations, CACHE_TAGS.activityFeed, activitiesTag(id))
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)
     return { success: true }
@@ -561,6 +792,7 @@ export async function setNextAction(id: string, input: unknown): Promise<ActionR
         lastActivityAt: FieldValue.serverTimestamp(),
       })
 
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)
     return { success: true }
@@ -622,6 +854,7 @@ export async function saveRelationshipManagement(
       })
     }
 
+    invalidate(CACHE_TAGS.organisations, CACHE_TAGS.activityFeed, activitiesTag(id))
     revalidatePath('/organisations')
     revalidatePath(`/organisations/${id}`)
     revalidatePath('/relationships')
@@ -642,6 +875,7 @@ export async function archiveOrganisation(id: string): Promise<ActionResult> {
       updatedAt: FieldValue.serverTimestamp(),
     })
 
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     return { success: true }
   } catch {
@@ -659,6 +893,7 @@ export async function restoreOrganisation(id: string): Promise<ActionResult> {
       updatedAt: FieldValue.serverTimestamp(),
     })
 
+    invalidate(CACHE_TAGS.organisations)
     revalidatePath('/organisations')
     revalidatePath('/organisations/archived')
     return { success: true }
@@ -708,6 +943,12 @@ export async function deleteOrganisationPermanently(id: unknown): Promise<Action
     // Removes the organisation and its activities subcollection.
     await adminDb.recursiveDelete(ref)
 
+    invalidate(
+      CACHE_TAGS.organisations,
+      CACHE_TAGS.activityFeed,
+      CACHE_TAGS.opportunities,
+      activitiesTag(parsed.data)
+    )
     revalidatePath('/organisations/archived')
     revalidatePath('/opportunities')
     revalidatePath('/dashboard')

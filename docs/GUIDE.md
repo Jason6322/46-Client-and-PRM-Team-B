@@ -49,7 +49,7 @@ This installs dependencies, creates the root `.env` from the template, and gener
 **All env values live in one file: the root `.env`.** (`frontend/.env.local` is generated from it — never edit it.)
 
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com) — the free **Spark plan** is enough, no billing required
-2. Enable **Authentication** (Email/Password + Google) and create a **Firestore** database
+2. Enable **Authentication** (Email/Password) and create a **Firestore** database
 3. Project settings → **Your apps** → add a **Web app** → copy each `firebaseConfig` value into `.env` (the variable names match: `apiKey` → `NEXT_PUBLIC_FIREBASE_API_KEY`, etc.)
 4. Project settings → **Service accounts** → generate a private key → base64-encode it (macOS: `base64 -i service-account.json | tr -d '\n'`; Linux: `base64 -w 0 service-account.json`) → paste into `FIREBASE_SERVICE_ACCOUNT_KEY_BASE64` in `.env`
 5. Set `NEXT_PUBLIC_FIREBASE_PROJECT_ID` in `.env` and put the same id in `.firebaserc` (replacing the placeholder)
@@ -66,7 +66,7 @@ If you are still having problems you can also try this copy and paste guide [COP
 
 - App: [http://localhost:3000](http://localhost:3000)
 
-Create an account via the sign-up page and check the Firebase console (Authentication → Users, and Firestore Database) — you'll see your user and their `users/{uid}` Firestore document appear. That round trip is the whole stack working.
+Sign-up is invite-only. Run `pnpm --filter frontend make-admin -- you@example.com` (it creates the account), set a password with **Forgot password?** on the sign-in page, then sign in. Check the Firebase console (Authentication → Users, and Firestore Database) — you'll see your user and their `users/{uid}` Firestore document. That round trip is the whole stack working; add everyone else from `/admin`.
 
 ---
 

@@ -10,6 +10,7 @@ Add a new typed Firestore collection with full integration across types, lib, se
 ## Step 1 — Gather requirements
 
 Ask the user:
+
 1. **Collection name** (plural, snake_case, e.g., `invoices`, `team_members`)
 2. **Model name** (PascalCase singular, e.g., `Invoice`, `TeamMember`)
 3. **Fields** — list with types
@@ -54,15 +55,27 @@ export function {model}Doc(id: string) {
 
 ### 3. `firebase/firestore.rules` — add security rules
 
-For owner-only pattern:
+Use `isMember()` (an active `users/{uid}` profile), not `isAuthenticated()` — anyone with the public API key can create a Firebase Auth account, but only invited people have a profile.
+
+For team data (the usual case — every write goes through Server Actions):
+
 ```
 match /{collection_name}/{docId} {
-  allow read:   if isAuthenticated() && isOwner(resource.data.uid);
-  allow create: if isAuthenticated() && isOwner(request.resource.data.uid)
+  allow read:  if isMember() && notDeleted();
+  allow write: if false;  // Admin SDK only
+}
+```
+
+For owner-only pattern:
+
+```
+match /{collection_name}/{docId} {
+  allow read:   if isMember() && isOwner(resource.data.uid);
+  allow create: if isMember() && isOwner(request.resource.data.uid)
                 && request.resource.data.keys().hasAll(['uid', ...required_fields]);
-  allow update: if isAuthenticated() && isOwner(resource.data.uid)
+  allow update: if isMember() && isOwner(resource.data.uid)
                 && request.resource.data.uid == resource.data.uid;
-  allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+  allow delete: if isMember() && isOwner(resource.data.uid);
 }
 ```
 
@@ -75,6 +88,8 @@ Returns `{ data, loading, error }`. Use `useCollection()` from `@/hooks/useFires
 Use `adminDb` from `@/lib/firebase/admin`. Always call `requireAuth()` first.
 Return `ActionResult<T>` shape: `{ success: boolean, error?: string, data?: T }`.
 
+Cache reads, invalidate on writes (the Spark plan allows 50,000 reads a day): add a tag for the collection to `CACHE_TAGS` in `@/lib/cache`, wrap the read in `cached(read, key, [CACHE_TAGS.x])` — with `requireAuth()` outside it, since cached functions must not touch cookies — and call `invalidate(CACHE_TAGS.x)` in every write next to its `revalidatePath`. Fetch the collection once and filter in memory rather than one query per view; see `allOrganisations` in `features/organisations/actions/organisations.actions.ts`.
+
 ### 6. `docs/FIRESTORE-SCHEMA.md` — document the schema
 
 Add a section with the collection name, field descriptions, and access pattern.
@@ -82,5 +97,6 @@ Add a section with the collection name, field descriptions, and access pattern.
 ## Step 3 — Remind user
 
 After all files are created:
+
 > "Run `npx firebase-tools deploy --only firestore:rules` (or `npx firebase-tools deploy --only firestore`) to push the updated security rules to production."
 > "If you added a composite index, add it to `firebase/firestore.indexes.json` and deploy with `npx firebase-tools deploy --only firestore:indexes`."
