@@ -25,8 +25,8 @@ defined in the test plan. Raised from the manual runs on 7–8 and 14–15 Octob
 
 | Status                      | Count |
 | --------------------------- | ----- |
-| Open                        | 3     |
-| Fixed                       | 2     |
+| Open                        | 2     |
+| Fixed                       | 3     |
 | Won't fix — client decision | 2     |
 
 The one Priority defect was raised, fixed and re-tested within a day. Of the three still
