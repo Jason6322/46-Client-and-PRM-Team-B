@@ -5,8 +5,7 @@ Run against the deployed site on 14–15 October 2026.
 
 Team 46B · Sprint 3 week 2 · Owner: Saneli Ratnayake (Dev)
 
-**Result: 34 run, 32 pass, 1 fail then fixed and re-tested, 1 not reliably testable.
-2 defects raised, 1 of them Priority.**
+**Result: 41 run, 39 pass, 1 fail then fixed and re-tested, 1 not reliably testable. 3 defects raised, 1 of them Priority.**
 
 **Safety note.** The permanent delete destroys data, including an organisation's activity
 history and its linked opportunities. Every DEL case below used a record created for testing
@@ -76,6 +75,22 @@ moves and one linked opportunity, then archived.
 | REL-03c | Urgent sorts first                       | Set an organisation to Urgent, open the Relationships page | Urgent appears ahead of High, Medium and Low           | Pass — the page orders Urgent, then High, then Medium                |
 | ORG-11b | Archived records are kept until deleted  | Open the Archived page                                     | No scheduled removal date and the 30 day claim is gone | Pass — DEF-01 confirmed fixed                                        |
 | ORG-02b | Relationship owner is no longer required | Add an organisation without setting an owner               | Saves without a validation error                       | Pass — saved as Unassigned. A primary contact name is still required |
+
+## Access control
+
+Added 17 October: invite-only access, administrator user management, and password reset. Run on 20 October against the deployed site.
+
+| ID | Title | Steps | Expected result | Result |
+| --- | --- | --- | --- | --- |
+| ACC-01 | Self-registration is not offered | Sign out and read the sign-in page | No way to create an account | Pass - the page reads "Don't have an account? Ask an administrator to add you" |
+| ACC-02 | The sign-up route is gone, not just hidden | Open /auth/signup directly | Not found | Pass — 404 |
+| ACC-03 | Password reset sends an email | Use Forgot password with a registered address | A reset link is received | Pass |
+| ACC-04 | Password reset does not reveal which accounts exist | Use Forgot password with an unregistered address and compare the message | The same message is shown either way | Pass — "If an account exists for that address…" in both cases |
+| ACC-05 | Administrative pages are not reachable by a team member | Signed in as a Team member, open /admin and /users | Not found, or redirected away | Pass — both return 404 while signed in |
+| ACC-06 | No unfinished pages are reachable | Signed in as a Team member, open /settings | Either a working page or not found | **Fail** — an empty placeholder page loads, see DEF-08 |
+| ACC-07 | Signed-out users are sent to sign in | Signed out, open /admin and /settings | Redirected to the sign-in page | Pass — redirected with the destination preserved |
+
+Two results are worth recording as positives. The sign-in error reads "Invalid email or password" rather than naming which was wrong and the password reset message is identical whether or not the address is registered. Neither reveals which email addresses have accounts.
 
 ## Cleanup
 
