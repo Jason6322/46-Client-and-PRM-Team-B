@@ -13,7 +13,8 @@ defined in the test plan. Raised from the manual runs on 7–8 and 14–15 Octob
 | DEF-04 | REL-01    | Minor        | Exceeding the Research status length shows the raw validation message "String must contain at most 100 character(s)". Other forms show plain messages such as "Enter a valid link", so validation wording is inconsistent across the app.                                                                                                                                             | A plain message in the same style as the rest of the app, for example "Research status must be 100 characters or fewer".                                             | Open Relationship Management, type more than 100 characters into Research status, save.                                  | Open                                                                                                                                                                                                                      |
 | DEF-05 | ORG-01    | Minor        | Relationship owner was removed from the Add Organisation form at the client's request, so new organisations are created as "Unassigned" with nothing prompting anyone to assign an owner. Unclear ownership of relationships was one of the problems the CRM was intended to solve.                                                                                                   | Either an owner is assigned on creation, or unassigned organisations are surfaced somewhere so they can be picked up.                                                | Add a new organisation, open its profile, read Relationship Owner.                                                       | Won't fix — the client asked for the owner to be optional and the Owner column removed from the list pages. Raised as a risk rather than a bug.                                                                           |
 | DEF-06 | DEL-03    | **Priority** | Delete permanently removed an organisation immediately on a single click, with no confirmation step. The record, its activity history and its linked opportunities were destroyed and could not be recovered. The button sits beside Restore on every row of the Archived page, where most rows were demo records rather than test data.                                              | Deleting asks the user to confirm, naming the organisation and stating that its history and opportunities will go with it, before anything is removed.               | Open Organisations > Archived and click Delete permanently on any row.                                                   | **Fixed** — a confirmation dialog was added that names the organisation, states what will be removed, says it cannot be undone and requires the name to be typed. Re-tested in DEL-03 and DEL-03b on 15 Oct, both passed. |
-| DEF-07 | CAL-02    | Major        | Meeting times are shown 11 hours later than entered, which is the Melbourne UTC offset in October. A meeting logged for 20 October at 10:00 am displays as 9:00 pm and one logged for 22 October at 2:00 pm displays as 1:00 am on 23 October, moving it to the wrong day in the calendar. Existing records show implausible times such as 11:49 pm, so all meetings appear affected. | A meeting logged at a given date and time is displayed at that date and time.                                                                                        | Open an organisation's Meetings page, log a meeting at a known time, then read the time shown in the calendar day list.  | **Fixed** — re-tested on 18 Oct. A meeting logged for 25 October at 11:00 am displays as 11:00 am on the 25th, and existing records now show plausible times.                                                                                                                                                                                                                     |
+| DEF-07 | CAL-02    | Major        | Meeting times are shown 11 hours later than entered, which is the Melbourne UTC offset in October. A meeting logged for 20 October at 10:00 am displays as 9:00 pm and one logged for 22 October at 2:00 pm displays as 1:00 am on 23 October, moving it to the wrong day in the calendar. Existing records show implausible times such as 11:49 pm, so all meetings appear affected. | A meeting logged at a given date and time is displayed at that date and time.                                                                                        | Open an organisation's Meetings page, log a meeting at a known time, then read the time shown in the calendar day list.  | **Fixed** — re-tested on 18 Oct. A meeting logged for 25 October at 11:00 am displays as 11:00 am on the 25th, and existing records now show plausible times.  |                                             
+| DEF-08 | ACC-06 | Minor | A /settings page is reachable by any signed-in user and shows only placeholder text, "Settings will appear here." It is not linked from the navigation and has no functionality. | Either the page is removed, or it is hidden until it does something. | Sign in and open /settings. | Open |
 
 ## Summary
 
@@ -21,17 +22,15 @@ defined in the test plan. Raised from the manual runs on 7–8 and 14–15 Octob
 | -------- | ----- |
 | Priority | 1     |
 | Major    | 2     |
-| Minor    | 4     |
+| Minor    | 5     |
 
 | Status                      | Count |
 | --------------------------- | ----- |
-| Open                        | 2     |
+| Open                        | 3     |
 | Fixed                       | 3     |
 | Won't fix — client decision | 2     |
 
-The one Priority defect was raised, fixed and re-tested within a day. Of the three still
-open, DEF-07 is the one that would be most visible to the client, because meetings appear on
-the wrong day in the calendar.
+The one Priority defect was raised, fixed and re-tested within a day. Of the three still open, DEF-03 is the most significant: the pipeline history records who moved an organisation and when, but not why, which is the question the history was added to answer.
 
 ## Notes
 
