@@ -61,6 +61,14 @@ function linkLabel(link: string) {
   }
 }
 
+/**
+ * Whether the outcome gets its own line. With no notes or agenda it is the
+ * entry's headline instead, so it would only repeat.
+ */
+function outcomeBelow(activity: OrganisationActivity) {
+  return activity.outcome !== null && (activity.notes !== null || activity.agenda !== null)
+}
+
 /** A datetime-local value for now, in the viewer's own timezone. */
 function nowForInput() {
   const now = new Date()
@@ -238,12 +246,12 @@ export function MeetingsActivities({
                     {formatDate(new Date(activity.occurredAt ?? activity.createdAt))}
                   </p>
                   <p className="mt-1 text-sm text-zinc-900">
-                    {activity.notes ?? activity.agenda ?? 'No details recorded'}
+                    {activity.notes ?? activity.agenda ?? activity.outcome ?? 'No details recorded'}
                   </p>
 
                   {((activity.attendees && !activity.responsible) ||
                     (activity.notes && activity.agenda) ||
-                    activity.outcome ||
+                    outcomeBelow(activity) ||
                     activity.actionItems ||
                     activity.nextFollowUp) && (
                     <dl className="mt-2 space-y-1 text-xs text-zinc-600">
@@ -261,7 +269,7 @@ export function MeetingsActivities({
                           <dd className="inline">{activity.attendees}</dd>
                         </div>
                       )}
-                      {activity.outcome && (
+                      {outcomeBelow(activity) && (
                         <div>
                           <dt className="inline text-zinc-500">Outcome: </dt>
                           <dd className="inline">{activity.outcome}</dd>

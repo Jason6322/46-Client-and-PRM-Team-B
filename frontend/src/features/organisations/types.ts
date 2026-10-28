@@ -85,7 +85,7 @@ export function byOccurrence<T extends OrganisationActivity>(activities: T[], no
  */
 export function describeActivity(activity: OrganisationActivity): string {
   if (isLoggedActivity(activity)) {
-    const summary = activity.agenda ?? activity.notes
+    const summary = activity.agenda ?? activity.notes ?? activity.outcome
     return summary ? `${activity.type} logged: ${truncate(summary, 60)}` : `${activity.type} logged`
   }
   return activity.fromStage
