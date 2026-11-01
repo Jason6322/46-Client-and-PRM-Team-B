@@ -62,8 +62,8 @@ export function TopNav() {
           className="flex items-center gap-2.5 text-base font-bold text-white"
         >
           {/* Decorative: the app name beside it already labels the link. */}
-          <Image src="/fsc-logo.png" alt="" width={40} height={40} preload />
-          {process.env.NEXT_PUBLIC_APP_NAME ?? 'FSC CRM'}
+          <Image src="/logo.png" alt="" width={40} height={40} preload />
+          {process.env.NEXT_PUBLIC_APP_NAME ?? 'Food Computing Academy'}
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

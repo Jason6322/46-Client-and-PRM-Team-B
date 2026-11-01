@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Home',
-  description: 'Client and partner relationship management for the Food Systems Collective.',
+  description: 'Client and partner relationship management for Food Computing Academy.',
 }
 
 export default function LandingPage() {
@@ -11,11 +11,10 @@ export default function LandingPage() {
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
       <div className="space-y-4 text-center">
         <h1 className="text-4xl font-bold tracking-tight">
-          {process.env.NEXT_PUBLIC_APP_NAME ?? 'App'}
+          {process.env.NEXT_PUBLIC_APP_NAME ?? 'Food Computing Academy'}
         </h1>
         <p className="max-w-md text-lg text-zinc-600">
-          Track organisations, contacts and partnership opportunities for the Food Systems
-          Collective.
+          Track organisations, contacts and partnership opportunities for Food Computing Academy.
         </p>
       </div>
       <div className="flex gap-4">

@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: `%s | ${process.env.NEXT_PUBLIC_APP_NAME ?? 'App'}`,
-    default: process.env.NEXT_PUBLIC_APP_NAME ?? 'App',
+    template: `%s | ${process.env.NEXT_PUBLIC_APP_NAME ?? 'Food Computing Academy'}`,
+    default: process.env.NEXT_PUBLIC_APP_NAME ?? 'Food Computing Academy',
   },
-  description: 'Client and partner relationship management for the Food Systems Collective.',
+  description: 'Client and partner relationship management for Food Computing Academy.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
